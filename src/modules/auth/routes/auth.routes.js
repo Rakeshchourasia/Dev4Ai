@@ -1,0 +1,12 @@
+import { Router } from "express";
+import { validate } from "../../../shared/middlewares/validate.js";
+import { loginSchema } from "../../../validation/login.schema.js";
+import { refreshSchema } from "../../../validation/refresh.schema.js";
+import authController from "../controllers/auth.controller.js";
+import authenticate from "../../../shared/middlewares/auth.middleware.js";
+const router = Router();
+router.post("/login", validate(loginSchema), authController.login);
+router.get("/me", authenticate, authController.me);
+router.post("/refresh", validate(refreshSchema), authController.refresh);
+router.post("/logout", validate(refreshSchema), authController.logout);
+export default router;
