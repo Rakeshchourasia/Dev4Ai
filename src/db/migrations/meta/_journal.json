@@ -15,6 +15,13 @@
       "when": 1786032155586,
       "tag": "0001_glorious_blacklash",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786547510219,
+      "tag": "0002_absent_ironclad",
+      "breakpoints": true
     }
   ]
 }

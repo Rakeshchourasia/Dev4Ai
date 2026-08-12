@@ -2,7 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import authRoutes from "./modules/auth/routes/auth.routes.js";
 import { errorHandler } from "./shared/middlewares/errorHandler.js";
-
+import companyRoutes from "./modules/company/routes/company.routes.js";
 
 const app = express();
 dotenv.config();
@@ -21,6 +21,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/auth", authRoutes);
+app.use("/companies", companyRoutes);
 
 
 export default app;
