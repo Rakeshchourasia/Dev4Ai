@@ -22,6 +22,41 @@
       "when": 1786547510219,
       "tag": "0002_absent_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786808778112,
+      "tag": "0003_cultured_mauler",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786812989068,
+      "tag": "0004_fearless_molly_hayes",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786814412953,
+      "tag": "0005_zippy_rick_jones",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786898469006,
+      "tag": "0006_odd_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786900733906,
+      "tag": "0007_lethal_talos",
+      "breakpoints": true
     }
   ]
 }

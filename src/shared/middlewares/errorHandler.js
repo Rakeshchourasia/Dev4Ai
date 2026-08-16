@@ -1,16 +1,12 @@
 import AppError from "../errors/AppError.js";
 
-export function errorHandler(err, req, res, next) {
-  if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
-      success: false,
-      message: err.message,
-    });
-  }
+export const errorHandler = (err, req, res, next) => {
+  console.error(err);
 
-  return res.status(500).json({
+  const statusCode = err.statusCode || 500;
+
+  return res.status(statusCode).json({
     success: false,
-    message: "Internal Server Error",   
-
+    message: err.message || "Internal server error",
   });
-}
+};

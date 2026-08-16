@@ -1,0 +1,1091 @@
+openapi: 3.0.3
+info:
+  title: Dev4AI Product API
+  description: Swagger documentation for the Express product management backend.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+    description: Authentication and user session APIs
+  - name: Company
+    description: Company management APIs
+  - name: Squad
+    description: Squad management APIs
+  - name: Sprint
+    description: Sprint planning and status APIs
+  - name: Ticket
+    description: Ticket management APIs
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation successful
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "7d1fbf7a-0d7d-48d5-a63d-c14d8d1a3bcd"
+        name:
+          type: string
+          example: "Rakesh"
+        email:
+          type: string
+          format: email
+          example: "rakesh@example.com"
+        role:
+          type: string
+          example: "admin"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-16T12:00:00.000Z"
+
+    Company:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "2b0d7a0d-fb90-4ff3-a4b7-0d5f5c66f8d8"
+        name:
+          type: string
+          example: "Acme Inc"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Squad:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        companyId:
+          type: string
+          format: uuid
+          example: "2b0d7a0d-fb90-4ff3-a4b7-0d5f5c66f8d8"
+        name:
+          type: string
+          example: "Platform"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Sprint:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c231a116-e5ef-49aa-b0cc-7aeb7dd69f79"
+        squadId:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        name:
+          type: string
+          example: "Sprint 1"
+        status:
+          type: string
+          enum: [PLANNED, ACTIVE, COMPLETED]
+          example: PLANNED
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-08-20T00:00:00.000Z"
+        endDate:
+          type: string
+          format: date-time
+          example: "2026-08-30T00:00:00.000Z"
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "7d4831fd-2dca-41d6-8914-5d9d9d4d3bcb"
+        squadId:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        sprintId:
+          type: string
+          format: uuid
+          example: "c231a116-e5ef-49aa-b0cc-7aeb7dd69f79"
+        title:
+          type: string
+          example: "Create dashboard filters"
+        description:
+          type: string
+          example: "Add filters for team and sprint selection"
+        status:
+          type: string
+          enum: [TODO, IN_PROGRESS, DONE]
+          example: TODO
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, URGENT]
+          example: HIGH
+        createdBy:
+          type: string
+          format: uuid
+          example: "7d1fbf7a-0d7d-48d5-a63d-c14d8d1a3bcd"
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          example: "e897af10-e6a0-4293-a57d-79e35d26152c"
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Invalid input
+        errors:
+          type: array
+          items:
+            type: string
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          example: "Rakesh"
+        email:
+          type: string
+          format: email
+          example: "rakesh@example.com"
+        password:
+          type: string
+          format: password
+          example: "password123"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "rakesh@example.com"
+        password:
+          type: string
+          format: password
+          example: "password123"
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    CompanyCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Acme Inc"
+
+    CompanyUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Updated Company"
+
+    SquadCreateRequest:
+      type: object
+      required: [companyId, name]
+      properties:
+        companyId:
+          type: string
+          format: uuid
+          example: "2b0d7a0d-fb90-4ff3-a4b7-0d5f5c66f8d8"
+        name:
+          type: string
+          example: "Platform"
+
+    SquadUpdateRequest:
+      type: object
+      properties:
+        companyId:
+          type: string
+          format: uuid
+          example: "2b0d7a0d-fb90-4ff3-a4b7-0d5f5c66f8d8"
+        name:
+          type: string
+          example: "Core Platform"
+
+    SprintCreateRequest:
+      type: object
+      required: [squadId, name, startDate, endDate]
+      properties:
+        squadId:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        name:
+          type: string
+          example: "Sprint 1"
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-08-20T00:00:00.000Z"
+        endDate:
+          type: string
+          format: date-time
+          example: "2026-08-30T00:00:00.000Z"
+
+    SprintUpdateRequest:
+      type: object
+      properties:
+        squadId:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        name:
+          type: string
+          example: "Sprint 2"
+        startDate:
+          type: string
+          format: date-time
+          example: "2026-08-25T00:00:00.000Z"
+        endDate:
+          type: string
+          format: date-time
+          example: "2026-09-05T00:00:00.000Z"
+
+    SprintStatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [PLANNED, ACTIVE, COMPLETED]
+          example: ACTIVE
+
+    TicketCreateRequest:
+      type: object
+      required: [squadId, sprintId, title, createdBy]
+      properties:
+        squadId:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        sprintId:
+          type: string
+          format: uuid
+          example: "c231a116-e5ef-49aa-b0cc-7aeb7dd69f79"
+        title:
+          type: string
+          example: "Create dashboard filters"
+        description:
+          type: string
+          example: "Add filters for team and sprint selection"
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, URGENT]
+          example: HIGH
+        createdBy:
+          type: string
+          format: uuid
+          example: "7d1fbf7a-0d7d-48d5-a63d-c14d8d1a3bcd"
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          example: "e897af10-e6a0-4293-a57d-79e35d26152c"
+
+    TicketUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Improve dashboard filters"
+        description:
+          type: string
+          example: "Add date-range filter"
+        status:
+          type: string
+          enum: [TODO, IN_PROGRESS, DONE]
+          example: IN_PROGRESS
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, URGENT]
+          example: MEDIUM
+        assignedTo:
+          type: string
+          format: uuid
+          nullable: true
+          example: "e897af10-e6a0-4293-a57d-79e35d26152c"
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid registration payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          refreshToken:
+                            type: string
+                            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          user:
+                            $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          accessToken:
+                            type: string
+                            example: "new-access-token"
+        '401':
+          description: Invalid refresh token
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /companies:
+    post:
+      tags: [Company]
+      summary: Create a company
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyCreateRequest'
+      responses:
+        '201':
+          description: Company created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Company'
+    get:
+      tags: [Company]
+      summary: Get all companies
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Companies fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Company'
+
+  /companies/{id}:
+    get:
+      tags: [Company]
+      summary: Get a company by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Company fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Company'
+        '404':
+          description: Company not found
+    put:
+      tags: [Company]
+      summary: Update a company
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyUpdateRequest'
+      responses:
+        '200':
+          description: Company updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Company'
+    patch:
+      tags: [Company]
+      summary: Partially update a company
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyUpdateRequest'
+      responses:
+        '200':
+          description: Company updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Company'
+    delete:
+      tags: [Company]
+      summary: Delete a company
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Company deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /squads:
+    post:
+      tags: [Squad]
+      summary: Create a squad
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SquadCreateRequest'
+      responses:
+        '201':
+          description: Squad created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Squad'
+
+  /squads/companies/{companyId}:
+    get:
+      tags: [Squad]
+      summary: Get squads by company id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: companyId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Squads fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Squad'
+
+  /squads/{id}:
+    get:
+      tags: [Squad]
+      summary: Get a squad by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Squad fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Squad'
+    patch:
+      tags: [Squad]
+      summary: Update squad details
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SquadUpdateRequest'
+      responses:
+        '200':
+          description: Squad updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Squad'
+    delete:
+      tags: [Squad]
+      summary: Delete a squad
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Squad deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /sprints:
+    post:
+      tags: [Sprint]
+      summary: Create a sprint
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SprintCreateRequest'
+      responses:
+        '201':
+          description: Sprint created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Sprint'
+
+  /sprints/squads/{squadId}:
+    get:
+      tags: [Sprint]
+      summary: Get all sprints for a squad
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: squadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sprints fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Sprint'
+
+  /sprints/{id}:
+    get:
+      tags: [Sprint]
+      summary: Get a sprint by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sprint fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Sprint'
+    patch:
+      tags: [Sprint]
+      summary: Update sprint details
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SprintUpdateRequest'
+      responses:
+        '200':
+          description: Sprint updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Sprint'
+    delete:
+      tags: [Sprint]
+      summary: Delete a sprint
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sprint deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /sprints/{id}/status:
+    patch:
+      tags: [Sprint]
+      summary: Update sprint status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SprintStatusUpdateRequest'
+      responses:
+        '200':
+          description: Sprint status updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Sprint'
+
+  /tickets:
+    post:
+      tags: [Ticket]
+      summary: Create a ticket
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketCreateRequest'
+      responses:
+        '201':
+          description: Ticket created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+
+  /tickets/sprints/{sprintId}:
+    get:
+      tags: [Ticket]
+      summary: Get tickets by sprint id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sprintId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tickets fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Ticket'
+
+  /tickets/squads/{squadId}:
+    get:
+      tags: [Ticket]
+      summary: Get tickets by squad id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: squadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tickets fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Ticket'
+
+  /tickets/{id}:
+    get:
+      tags: [Ticket]
+      summary: Get a ticket by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ticket fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+    patch:
+      tags: [Ticket]
+      summary: Update a ticket
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketUpdateRequest'
+      responses:
+        '200':
+          description: Ticket updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+    delete:
+      tags: [Ticket]
+      summary: Delete a ticket
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ticket deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
