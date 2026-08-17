@@ -57,6 +57,13 @@
       "when": 1786900733906,
       "tag": "0007_lethal_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786949579314,
+      "tag": "0008_milky_lockheed",
+      "breakpoints": true
     }
   ]
 }

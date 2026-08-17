@@ -17,6 +17,12 @@ const VALID_PRIORITIES = [
   "URGENT",
 ];
 
+const ALLOWED_STATUS_TRANSITIONS = {
+  TODO: ["IN_PROGRESS"],
+  IN_PROGRESS: ["DONE"],
+  DONE: [],
+};
+
 class TicketService {
   async create(ticketData) {
     const {
@@ -31,33 +37,53 @@ class TicketService {
 
     // 1. Required fields
     if (!squadId) {
-      throw new AppError("Squad ID is required", 400);
+      throw new AppError(
+        "Squad ID is required",
+        400
+      );
     }
 
     if (!sprintId) {
-      throw new AppError("Sprint ID is required", 400);
+      throw new AppError(
+        "Sprint ID is required",
+        400
+      );
     }
 
     if (!title) {
-      throw new AppError("Ticket title is required", 400);
+      throw new AppError(
+        "Ticket title is required",
+        400
+      );
     }
 
     if (!createdBy) {
-      throw new AppError("Created by user ID is required", 400);
+      throw new AppError(
+        "Created by user ID is required",
+        400
+      );
     }
 
     // 2. Check Squad
-    const squad = await squadRepository.findById(squadId);
+    const squad =
+      await squadRepository.findById(squadId);
 
     if (!squad) {
-      throw new AppError("Squad not found", 404);
+      throw new AppError(
+        "Squad not found",
+        404
+      );
     }
 
     // 3. Check Sprint
-    const sprint = await sprintRepository.findById(sprintId);
+    const sprint =
+      await sprintRepository.findById(sprintId);
 
     if (!sprint) {
-      throw new AppError("Sprint not found", 404);
+      throw new AppError(
+        "Sprint not found",
+        404
+      );
     }
 
     // 4. Make sure Sprint belongs to Squad
@@ -68,8 +94,17 @@ class TicketService {
       );
     }
 
-    // 5. Check creator
-    const creator = await authRepository.findById(createdBy);
+    // 5. Cannot create ticket in completed Sprint
+    if (sprint.status === "COMPLETED") {
+      throw new AppError(
+        "Cannot create a ticket in a completed sprint",
+        400
+      );
+    }
+
+    // 6. Check creator
+    const creator =
+      await authRepository.findById(createdBy);
 
     if (!creator) {
       throw new AppError(
@@ -78,10 +113,12 @@ class TicketService {
       );
     }
 
-    // 6. Check assignee if provided
+    // 7. Check assignee if provided
     if (assignedTo) {
       const assignee =
-        await authRepository.findById(assignedTo);
+        await authRepository.findById(
+          assignedTo
+        );
 
       if (!assignee) {
         throw new AppError(
@@ -91,7 +128,7 @@ class TicketService {
       }
     }
 
-    // 7. Validate priority
+    // 8. Validate priority
     if (
       priority &&
       !VALID_PRIORITIES.includes(priority)
@@ -102,7 +139,7 @@ class TicketService {
       );
     }
 
-    // 8. Create ticket
+    // 9. Create ticket
     return await ticketRepository.create({
       squadId,
       sprintId,
@@ -116,10 +153,14 @@ class TicketService {
   }
 
   async getAllBySprint(sprintId) {
-    const sprint = await sprintRepository.findById(sprintId);
+    const sprint =
+      await sprintRepository.findById(sprintId);
 
     if (!sprint) {
-      throw new AppError("Sprint not found", 404);
+      throw new AppError(
+        "Sprint not found",
+        404
+      );
     }
 
     return await ticketRepository.findAllBySprintId(
@@ -128,10 +169,14 @@ class TicketService {
   }
 
   async getAllBySquad(squadId) {
-    const squad = await squadRepository.findById(squadId);
+    const squad =
+      await squadRepository.findById(squadId);
 
     if (!squad) {
-      throw new AppError("Squad not found", 404);
+      throw new AppError(
+        "Squad not found",
+        404
+      );
     }
 
     return await ticketRepository.findAllBySquadId(
@@ -140,41 +185,94 @@ class TicketService {
   }
 
   async getById(id) {
-    const ticket = await ticketRepository.findById(id);
+    const ticket =
+      await ticketRepository.findById(id);
 
     if (!ticket) {
-      throw new AppError("Ticket not found", 404);
+      throw new AppError(
+        "Ticket not found",
+        404
+      );
     }
 
     return ticket;
   }
 
   async update(id, ticketData) {
-    const ticket = await ticketRepository.findById(id);
+    const ticket =
+      await ticketRepository.findById(id);
 
     if (!ticket) {
-      throw new AppError("Ticket not found", 404);
-    }
-
-    if (
-      ticketData.status &&
-      !VALID_STATUSES.includes(ticketData.status)
-    ) {
       throw new AppError(
-        "Invalid ticket status",
-        400
+        "Ticket not found",
+        404
       );
     }
 
+    // ==========================================
+    // 1. Validate Ticket Status
+    // ==========================================
+
+    if (ticketData.status) {
+      // Check valid status
+      if (
+        !VALID_STATUSES.includes(
+          ticketData.status
+        )
+      ) {
+        throw new AppError(
+          "Invalid ticket status",
+          400
+        );
+      }
+
+      // Prevent same status
+      if (
+        ticketData.status === ticket.status
+      ) {
+        throw new AppError(
+          `Ticket is already ${ticket.status}`,
+          400
+        );
+      }
+
+      // Check allowed transition
+      const allowedTransitions =
+        ALLOWED_STATUS_TRANSITIONS[
+        ticket.status
+        ];
+
+      if (
+        !allowedTransitions.includes(
+          ticketData.status
+        )
+      ) {
+        throw new AppError(
+          `Cannot change ticket status from ${ticket.status} to ${ticketData.status}`,
+          400
+        );
+      }
+    }
+
+    // ==========================================
+    // 2. Validate Priority
+    // ==========================================
+
     if (
       ticketData.priority &&
-      !VALID_PRIORITIES.includes(ticketData.priority)
+      !VALID_PRIORITIES.includes(
+        ticketData.priority
+      )
     ) {
       throw new AppError(
         "Invalid ticket priority",
         400
       );
     }
+
+    // ==========================================
+    // 3. Validate Assignee
+    // ==========================================
 
     if (ticketData.assignedTo) {
       const assignee =
@@ -190,17 +288,121 @@ class TicketService {
       }
     }
 
+    // ==========================================
+    // 4. If changing Sprint
+    // ==========================================
+
+    if (ticketData.sprintId) {
+      const sprint =
+        await sprintRepository.findById(
+          ticketData.sprintId
+        );
+
+      if (!sprint) {
+        throw new AppError(
+          "Sprint not found",
+          404
+        );
+      }
+
+      // Cannot move ticket to completed Sprint
+      if (sprint.status === "COMPLETED") {
+        throw new AppError(
+          "Cannot move ticket to a completed sprint",
+          400
+        );
+      }
+
+      // Determine Squad
+      const squadId =
+        ticketData.squadId ||
+        ticket.squadId;
+
+      // Sprint must belong to Squad
+      if (sprint.squadId !== squadId) {
+        throw new AppError(
+          "Sprint does not belong to this squad",
+          400
+        );
+      }
+    }
+
+    // ==========================================
+    // 5. If changing Squad
+    // ==========================================
+
+    if (ticketData.squadId) {
+      const squad =
+        await squadRepository.findById(
+          ticketData.squadId
+        );
+
+      if (!squad) {
+        throw new AppError(
+          "Squad not found",
+          404
+        );
+      }
+
+      // Determine Sprint
+      const sprintId =
+        ticketData.sprintId ||
+        ticket.sprintId;
+
+      const sprint =
+        await sprintRepository.findById(
+          sprintId
+        );
+
+      if (!sprint) {
+        throw new AppError(
+          "Sprint not found",
+          404
+        );
+      }
+
+      // Sprint must belong to new Squad
+      if (
+        sprint.squadId !==
+        ticketData.squadId
+      ) {
+        throw new AppError(
+          "Sprint does not belong to this squad",
+          400
+        );
+      }
+
+      // Cannot move to completed Sprint
+      if (sprint.status === "COMPLETED") {
+        throw new AppError(
+          "Cannot move ticket to a completed sprint",
+          400
+        );
+      }
+    }
+
+    // ==========================================
+    // 6. Update Ticket
+    // ==========================================
+
     return await ticketRepository.update(
       id,
-      ticketData
+      {
+        ...ticketData,
+        updatedAt: new Date(),
+      }
     );
   }
 
   async delete(id) {
-    const ticket = await ticketRepository.findById(id);
+    const ticket =
+      await ticketRepository.findById(id);
 
     if (!ticket) {
-      throw new AppError("Ticket not found", 404);
+      throw new AppError(
+        "Ticket not found",
+        404
+      );
     }
 
     await ticketRepository.delete(id);
