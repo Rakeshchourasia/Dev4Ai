@@ -15,23 +15,26 @@ class SprintController {
     }
   }
 
-  async getAllBySquad(req, res, next) {
-    try {
-      const { squadId } = req.params;
+ async getAllBySquad(req, res, next) {
+  try {
+    const { squadId } = req.params;
 
-      const sprints = await sprintService.getAllBySquad(
-        squadId
+    const result =
+      await sprintService.getAllBySquad(
+        squadId,
+        req.query
       );
 
-      return res.status(200).json({
-        success: true,
-        message: "Sprints fetched successfully",
-        data: sprints,
-      });
-    } catch (error) {
-      next(error);
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Sprints fetched successfully",
+      data: result.sprints,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    next(error);
   }
+}
 
   async getById(req, res, next) {
     try {

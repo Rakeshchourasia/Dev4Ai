@@ -1,6 +1,8 @@
 import {
   eq,
   and,
+  count,
+  asc,
   lt,
   gt,
   ne,
@@ -10,11 +12,55 @@ import { db } from "../../../db/index.js";
 import { sprints } from "../../../db/schema/sprints.schema.js";
 
 class SprintRepository {
-  async findAllBySquadId(squadId) {
+  async findAllBySquadId(
+    squadId,
+    {
+      limit,
+      offset,
+      status,
+    } = {}
+  ) {
+    const conditions = [
+      eq(sprints.squadId, squadId),
+    ];
+
+    if (status) {
+      conditions.push(
+        eq(sprints.status, status)
+      );
+    }
+
     return await db
       .select()
       .from(sprints)
-      .where(eq(sprints.squadId, squadId));
+      .where(and(...conditions))
+      .orderBy(asc(sprints.startDate))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async countBySquadId(
+    squadId,
+    { status } = {}
+  ) {
+    const conditions = [
+      eq(sprints.squadId, squadId),
+    ];
+
+    if (status) {
+      conditions.push(
+        eq(sprints.status, status)
+      );
+    }
+
+    const result = await db
+      .select({
+        count: count(),
+      })
+      .from(sprints)
+      .where(and(...conditions));
+
+    return Number(result[0]?.count || 0);
   }
 
   async findById(id) {

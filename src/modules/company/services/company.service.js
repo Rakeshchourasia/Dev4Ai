@@ -1,14 +1,28 @@
 import companyRepository from "../repository/company.repository.js";
 import AppError from "../../../shared/errors/AppError.js";
 
+import {
+  getPagination,
+  buildPagination,
+} from "../../../shared/utils/pagination.js";
+
 class CompanyService {
+  // ==========================================
+  // CREATE COMPANY
+  // ==========================================
+
   async create(companyData) {
     if (!companyData.name) {
-      throw new AppError("Company name is required", 400);
+      throw new AppError(
+        "Company name is required",
+        400
+      );
     }
 
     const existingCompany =
-      await companyRepository.findByName(companyData.name);
+      await companyRepository.findByName(
+        companyData.name
+      );
 
     if (existingCompany) {
       throw new AppError(
@@ -22,12 +36,43 @@ class CompanyService {
     });
   }
 
-  async getAll() {
-    return await companyRepository.findAll();
+  // ==========================================
+  // GET ALL COMPANIES
+  // ==========================================
+
+  async getAll(query = {}) {
+    const {
+      page,
+      limit,
+      offset,
+    } = getPagination(query);
+
+    const companies =
+      await companyRepository.findAll({
+        limit,
+        offset,
+      });
+
+    const total =
+      await companyRepository.countAll();
+
+    return {
+      companies,
+      pagination: buildPagination(
+        page,
+        limit,
+        total
+      ),
+    };
   }
 
+  // ==========================================
+  // GET COMPANY BY ID
+  // ==========================================
+
   async getById(id) {
-    const company = await companyRepository.findById(id);
+    const company =
+      await companyRepository.findById(id);
 
     if (!company) {
       throw new AppError(
@@ -39,8 +84,13 @@ class CompanyService {
     return company;
   }
 
+  // ==========================================
+  // UPDATE COMPANY
+  // ==========================================
+
   async update(id, companyData) {
-    const company = await companyRepository.findById(id);
+    const company =
+      await companyRepository.findById(id);
 
     if (!company) {
       throw new AppError(
@@ -72,8 +122,13 @@ class CompanyService {
     );
   }
 
+  // ==========================================
+  // DELETE COMPANY
+  // ==========================================
+
   async delete(id) {
-    const company = await companyRepository.findById(id);
+    const company =
+      await companyRepository.findById(id);
 
     if (!company) {
       throw new AppError(

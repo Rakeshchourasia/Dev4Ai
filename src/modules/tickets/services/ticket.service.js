@@ -2,7 +2,12 @@ import ticketRepository from "../repositories/ticket.repository.js";
 import squadRepository from "../../squads/repositories/squad.repository.js";
 import sprintRepository from "../../sprints/repositories/sprint.repository.js";
 import authRepository from "../../auth/repositories/auth.repository.js";
+import squadMemberRepository from "../../squads/repositories/squadMember.repository.js";
 import AppError from "../../../shared/errors/AppError.js";
+import {
+  getPagination,
+  buildPagination,
+} from "../../../shared/utils/pagination.js";
 
 const VALID_STATUSES = [
   "TODO",
@@ -113,17 +118,29 @@ class TicketService {
       );
     }
 
-    // 7. Check assignee if provided
     if (assignedTo) {
+      // Check user exists
       const assignee =
-        await authRepository.findById(
-          assignedTo
-        );
+        await authRepository.findById(assignedTo);
 
       if (!assignee) {
         throw new AppError(
           "Assigned user not found",
           404
+        );
+      }
+
+      // Check user belongs to Squad
+      const isMember =
+        await squadMemberRepository.isMember(
+          squadId,
+          assignedTo
+        );
+
+      if (!isMember) {
+        throw new AppError(
+          "Assigned user is not a member of this squad",
+          400
         );
       }
     }
@@ -152,37 +169,101 @@ class TicketService {
     });
   }
 
-  async getAllBySprint(sprintId) {
-    const sprint =
-      await sprintRepository.findById(sprintId);
+async getAllBySprint(sprintId, query) {
+  const sprint =
+    await sprintRepository.findById(sprintId);
 
-    if (!sprint) {
-      throw new AppError(
-        "Sprint not found",
-        404
-      );
-    }
-
-    return await ticketRepository.findAllBySprintId(
-      sprintId
+  if (!sprint) {
+    throw new AppError(
+      "Sprint not found",
+      404
     );
   }
 
-  async getAllBySquad(squadId) {
-    const squad =
-      await squadRepository.findById(squadId);
+  const {
+    page,
+    limit,
+    offset,
+  } = getPagination(query);
 
-    if (!squad) {
-      throw new AppError(
-        "Squad not found",
-        404
-      );
-    }
+  const filters = {
+    status: query.status,
+    priority: query.priority,
+  };
 
-    return await ticketRepository.findAllBySquadId(
-      squadId
+  const tickets =
+    await ticketRepository.findAllBySprintId(
+      sprintId,
+      {
+        limit,
+        offset,
+        ...filters,
+      }
+    );
+
+  const total =
+    await ticketRepository.countBySprintId(
+      sprintId,
+      filters
+    );
+
+  return {
+    tickets,
+    pagination: buildPagination(
+      page,
+      limit,
+      total
+    ),
+  };
+}
+
+async getAllBySquad(squadId, query) {
+  const squad =
+    await squadRepository.findById(squadId);
+
+  if (!squad) {
+    throw new AppError(
+      "Squad not found",
+      404
     );
   }
+
+  const {
+    page,
+    limit,
+    offset,
+  } = getPagination(query);
+
+  const filters = {
+    status: query.status,
+    priority: query.priority,
+  };
+
+  const tickets =
+    await ticketRepository.findAllBySquadId(
+      squadId,
+      {
+        limit,
+        offset,
+        ...filters,
+      }
+    );
+
+  const total =
+    await ticketRepository.countBySquadId(
+      squadId,
+      filters
+    );
+
+  return {
+    tickets,
+    pagination: buildPagination(
+      page,
+      limit,
+      total
+    ),
+  };
+}
 
   async getById(id) {
     const ticket =
@@ -273,8 +354,8 @@ class TicketService {
     // ==========================================
     // 3. Validate Assignee
     // ==========================================
-
     if (ticketData.assignedTo) {
+      // Check user exists
       const assignee =
         await authRepository.findById(
           ticketData.assignedTo
@@ -286,8 +367,26 @@ class TicketService {
           404
         );
       }
-    }
 
+      // Determine the Ticket's Squad
+      const squadId =
+        ticketData.squadId ||
+        ticket.squadId;
+
+      // Check Squad membership
+      const isMember =
+        await squadMemberRepository.isMember(
+          squadId,
+          ticketData.assignedTo
+        );
+
+      if (!isMember) {
+        throw new AppError(
+          "Assigned user is not a member of this squad",
+          400
+        );
+      }
+    }
     // ==========================================
     // 4. If changing Sprint
     // ==========================================

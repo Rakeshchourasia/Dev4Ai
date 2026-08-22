@@ -1,57 +1,127 @@
-import { eq } from "drizzle-orm";
+import {
+  eq,
+  and,
+  count,
+} from "drizzle-orm";
+
 import { db } from "../../../db/index.js";
 import { tickets } from "../../../db/schema/tickets.schema.js";
 
 class TicketRepository {
-  async findAllBySprintId(sprintId) {
+  async findAllBySprintId(
+    sprintId,
+    { limit, offset, status, priority } = {}
+  ) {
+    const conditions = [
+      eq(tickets.sprintId, sprintId),
+    ];
+
+    if (status) {
+      conditions.push(
+        eq(tickets.status, status)
+      );
+    }
+
+    if (priority) {
+      conditions.push(
+        eq(tickets.priority, priority)
+      );
+    }
+
     return await db
       .select()
       .from(tickets)
-      .where(eq(tickets.sprintId, sprintId));
+      .where(and(...conditions))
+      .limit(limit)
+      .offset(offset);
   }
 
-  async findAllBySquadId(squadId) {
+  async countBySprintId(
+    sprintId,
+    { status, priority } = {}
+  ) {
+    const conditions = [
+      eq(tickets.sprintId, sprintId),
+    ];
+
+    if (status) {
+      conditions.push(
+        eq(tickets.status, status)
+      );
+    }
+
+    if (priority) {
+      conditions.push(
+        eq(tickets.priority, priority)
+      );
+    }
+
+    const result = await db
+      .select({
+        count: count(),
+      })
+      .from(tickets)
+      .where(and(...conditions));
+
+    return Number(result[0]?.count || 0);
+  }
+
+  async findAllBySquadId(
+    squadId,
+    { limit, offset, status, priority } = {}
+  ) {
+    const conditions = [
+      eq(tickets.squadId, squadId),
+    ];
+
+    if (status) {
+      conditions.push(
+        eq(tickets.status, status)
+      );
+    }
+
+    if (priority) {
+      conditions.push(
+        eq(tickets.priority, priority)
+      );
+    }
+
     return await db
       .select()
       .from(tickets)
-      .where(eq(tickets.squadId, squadId));
+      .where(and(...conditions))
+      .limit(limit)
+      .offset(offset);
   }
 
-  async findById(id) {
+  async countBySquadId(
+    squadId,
+    { status, priority } = {}
+  ) {
+    const conditions = [
+      eq(tickets.squadId, squadId),
+    ];
+
+    if (status) {
+      conditions.push(
+        eq(tickets.status, status)
+      );
+    }
+
+    if (priority) {
+      conditions.push(
+        eq(tickets.priority, priority)
+      );
+    }
+
     const result = await db
-      .select()
+      .select({
+        count: count(),
+      })
       .from(tickets)
-      .where(eq(tickets.id, id));
+      .where(and(...conditions));
 
-    return result[0] || null;
-  }
-
-  async create(ticketData) {
-    const result = await db
-      .insert(tickets)
-      .values(ticketData)
-      .returning();
-
-    return result[0];
-  }
-
-  async update(id, ticketData) {
-    const result = await db
-      .update(tickets)
-      .set(ticketData)
-      .where(eq(tickets.id, id))
-      .returning();
-
-    return result[0] || null;
-  }
-
-  async delete(id) {
-    const result = await db
-      .delete(tickets)
-      .where(eq(tickets.id, id))
-      .returning();
-
-    return result[0] || null;
+    return Number(result[0]?.count || 0);
   }
 }
 

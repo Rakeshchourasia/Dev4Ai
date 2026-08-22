@@ -2,7 +2,16 @@ import squadRepository from "../repositories/squad.repository.js";
 import companyRepository from "../../company/repository/company.repository.js";
 import AppError from "../../../shared/errors/AppError.js";
 
+import {
+  getPagination,
+  buildPagination,
+} from "../../../shared/utils/pagination.js";
+
 class SquadService {
+  // ==========================================
+  // CREATE SQUAD
+  // ==========================================
+
   async create(squadData) {
     if (!squadData.companyId) {
       throw new AppError(
@@ -18,10 +27,11 @@ class SquadService {
       );
     }
 
-    // Check that the company exists
-    const company = await companyRepository.findById(
-      squadData.companyId
-    );
+    // Check Company
+    const company =
+      await companyRepository.findById(
+        squadData.companyId
+      );
 
     if (!company) {
       throw new AppError(
@@ -36,10 +46,19 @@ class SquadService {
     });
   }
 
-  async getAllByCompany(companyId) {
-    const company = await companyRepository.findById(
-      companyId
-    );
+  // ==========================================
+  // GET ALL SQUADS BY COMPANY
+  // ==========================================
+
+  async getAllByCompany(
+    companyId,
+    query = {}
+  ) {
+    // Check Company
+    const company =
+      await companyRepository.findById(
+        companyId
+      );
 
     if (!company) {
       throw new AppError(
@@ -48,13 +67,46 @@ class SquadService {
       );
     }
 
-    return await squadRepository.findAllByCompanyId(
-      companyId
-    );
+    // Pagination
+    const {
+      page,
+      limit,
+      offset,
+    } = getPagination(query);
+
+    // Get squads
+    const squads =
+      await squadRepository.findAllByCompanyId(
+        companyId,
+        {
+          limit,
+          offset,
+        }
+      );
+
+    // Get total count
+    const total =
+      await squadRepository.countByCompanyId(
+        companyId
+      );
+
+    return {
+      squads,
+      pagination: buildPagination(
+        page,
+        limit,
+        total
+      ),
+    };
   }
 
+  // ==========================================
+  // GET SQUAD BY ID
+  // ==========================================
+
   async getById(id) {
-    const squad = await squadRepository.findById(id);
+    const squad =
+      await squadRepository.findById(id);
 
     if (!squad) {
       throw new AppError(
@@ -66,8 +118,13 @@ class SquadService {
     return squad;
   }
 
+  // ==========================================
+  // UPDATE SQUAD
+  // ==========================================
+
   async update(id, squadData) {
-    const squad = await squadRepository.findById(id);
+    const squad =
+      await squadRepository.findById(id);
 
     if (!squad) {
       throw new AppError(
@@ -76,6 +133,7 @@ class SquadService {
       );
     }
 
+    // If company is being changed
     if (squadData.companyId) {
       const company =
         await companyRepository.findById(
@@ -96,8 +154,13 @@ class SquadService {
     );
   }
 
+  // ==========================================
+  // DELETE SQUAD
+  // ==========================================
+
   async delete(id) {
-    const squad = await squadRepository.findById(id);
+    const squad =
+      await squadRepository.findById(id);
 
     if (!squad) {
       throw new AppError(

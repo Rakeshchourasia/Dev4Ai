@@ -1,6 +1,10 @@
 import sprintRepository from "../repositories/sprint.repository.js";
 import squadRepository from "../../squads/repositories/squad.repository.js";
 import AppError from "../../../shared/errors/AppError.js";
+import {
+  getPagination,
+  buildPagination,
+} from "../../../shared/utils/pagination.js";
 
 class SprintService {
   async create(sprintData) {
@@ -77,19 +81,57 @@ class SprintService {
     });
   }
 
-  async getAllBySquad(squadId) {
-    // Check squad exists
-    const squad = await squadRepository.findById(squadId);
+  async getAllBySquad(squadId, query) {
+    // Check Squad
+    const squad =
+      await squadRepository.findById(squadId);
 
     if (!squad) {
-      throw new AppError("Squad not found", 404);
+      throw new AppError(
+        "Squad not found",
+        404
+      );
     }
 
-    return await sprintRepository.findAllBySquadId(
-      squadId
-    );
-  }
+    // Pagination
+    const {
+      page,
+      limit,
+      offset,
+    } = getPagination(query);
 
+    // Filters
+    const filters = {
+      status: query.status,
+    };
+
+    // Fetch data
+    const sprints =
+      await sprintRepository.findAllBySquadId(
+        squadId,
+        {
+          limit,
+          offset,
+          ...filters,
+        }
+      );
+
+    // Count
+    const total =
+      await sprintRepository.countBySquadId(
+        squadId,
+        filters
+      );
+
+    return {
+      sprints,
+      pagination: buildPagination(
+        page,
+        limit,
+        total
+      ),
+    };
+  }
   async getById(id) {
     const sprint = await sprintRepository.findById(id);
 
@@ -192,32 +234,32 @@ class SprintService {
   }
 
   async updateStatus(id, status) {
-  const sprint = await sprintRepository.findById(id);
+    const sprint = await sprintRepository.findById(id);
 
-  if (!sprint) {
-    throw new AppError("Sprint not found", 404);
+    if (!sprint) {
+      throw new AppError("Sprint not found", 404);
+    }
+
+    const allowedTransitions = {
+      PLANNED: ["ACTIVE"],
+      ACTIVE: ["COMPLETED"],
+      COMPLETED: [],
+    };
+
+    if (
+      !allowedTransitions[sprint.status].includes(status)
+    ) {
+      throw new AppError(
+        `Cannot change sprint status from ${sprint.status} to ${status}`,
+        400
+      );
+    }
+
+    return await sprintRepository.update(id, {
+      status,
+      updatedAt: new Date(),
+    });
   }
-
-  const allowedTransitions = {
-    PLANNED: ["ACTIVE"],
-    ACTIVE: ["COMPLETED"],
-    COMPLETED: [],
-  };
-
-  if (
-    !allowedTransitions[sprint.status].includes(status)
-  ) {
-    throw new AppError(
-      `Cannot change sprint status from ${sprint.status} to ${status}`,
-      400
-    );
-  }
-
-  return await sprintRepository.update(id, {
-    status,
-    updatedAt: new Date(),
-  });
-}
 }
 
 export default new SprintService();

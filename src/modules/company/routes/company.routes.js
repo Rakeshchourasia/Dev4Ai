@@ -1,14 +1,29 @@
 import { Router } from "express";
+
 import companyController from "../controllers/company.controller.js";
+
 import authenticate from "../../../shared/middlewares/auth.middleware.js";
+
+import authorize from "../../../shared/middlewares/authorize.js";
+
 import { validate } from "../../../shared/middlewares/validate.js";
+
+import { validateQuery } from "../../../shared/middlewares/validateQuery.js";
+
 import {
   createCompanySchema,
   updateCompanySchema,
 } from "../../../validation/company.schema.js";
-import authorize from "../../../shared/middlewares/authorize.js";
+
+import {
+  companyQuerySchema,
+} from "../../../validation/company-query.schema.js";
 
 const router = Router();
+
+// ==========================================
+// CREATE COMPANY
+// ==========================================
 
 router.post(
   "/",
@@ -18,20 +33,20 @@ router.post(
   companyController.create
 );
 
-
-router.put(
-  "/:id",
-  authenticate,
-  authorize("admin"),
-  validate(updateCompanySchema),
-  companyController.update
-);
+// ==========================================
+// GET ALL COMPANIES
+// ==========================================
 
 router.get(
   "/",
   authenticate,
+  validateQuery(companyQuerySchema),
   companyController.getAll
 );
+
+// ==========================================
+// GET COMPANY BY ID
+// ==========================================
 
 router.get(
   "/:id",
@@ -39,16 +54,26 @@ router.get(
   companyController.getById
 );
 
+// ==========================================
+// UPDATE COMPANY
+// ==========================================
+
 router.patch(
   "/:id",
   authenticate,
+  authorize("admin"),
+  validate(updateCompanySchema),
   companyController.update
 );
 
+// ==========================================
+// DELETE COMPANY
+// ==========================================
+
 router.delete(
   "/:id",
-  authorize("admin"),
   authenticate,
+  authorize("admin"),
   companyController.delete
 );
 

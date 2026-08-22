@@ -15,19 +15,23 @@ class CompanyController {
     }
   }
 
-  async getAll(req, res, next) {
-    try {
-      const companies = await companyService.getAll();
+async getAll(req, res, next) {
+  try {
+    const result =
+      await companyService.getAll(
+        req.query
+      );
 
-      return res.status(200).json({
-        success: true,
-        message: "Companies fetched successfully",
-        data: companies,
-      });
-    } catch (error) {
-      next(error);
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Companies fetched successfully",
+      data: result.companies,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    next(error);
   }
+}
 
   async getById(req, res, next) {
     try {

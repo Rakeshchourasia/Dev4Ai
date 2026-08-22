@@ -15,41 +15,79 @@ class TicketController {
     }
   }
 
-  async getAllBySprint(req, res, next) {
-    try {
-      const { sprintId } = req.params;
+async getAllBySprint(sprintId, query) {
+  const sprint =
+    await sprintRepository.findById(sprintId);
 
-      const tickets = await ticketService.getAllBySprint(
-        sprintId
-      );
-
-      return res.status(200).json({
-        success: true,
-        message: "Tickets fetched successfully",
-        data: tickets,
-      });
-    } catch (error) {
-      next(error);
-    }
+  if (!sprint) {
+    throw new AppError(
+      "Sprint not found",
+      404
+    );
   }
 
-  async getAllBySquad(req, res, next) {
-    try {
-      const { squadId } = req.params;
+  const {
+    page,
+    limit,
+    offset,
+  } = getPagination(query);
 
-      const tickets = await ticketService.getAllBySquad(
-        squadId
+  const status = query.status;
+  const priority = query.priority;
+
+  const tickets =
+    await ticketRepository.findAllBySprintId(
+      sprintId,
+      {
+        limit,
+        offset,
+        status,
+        priority,
+      }
+    );
+
+  const total =
+    await ticketRepository.countBySprintId(
+      sprintId,
+      {
+        status,
+        priority,
+      }
+    );
+
+  return {
+    tickets,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(
+        total / limit
+      ),
+    },
+  };
+}
+
+async getAllBySquad(req, res, next) {
+  try {
+    const { squadId } = req.params;
+
+    const result =
+      await ticketService.getAllBySquad(
+        squadId,
+        req.query
       );
 
-      return res.status(200).json({
-        success: true,
-        message: "Tickets fetched successfully",
-        data: tickets,
-      });
-    } catch (error) {
-      next(error);
-    }
+    return res.status(200).json({
+      success: true,
+      message: "Tickets fetched successfully",
+      data: result.tickets,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    next(error);
   }
+}
 
   async getById(req, res, next) {
     try {

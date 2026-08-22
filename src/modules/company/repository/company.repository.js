@@ -1,13 +1,32 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { companies } from "../../../db/schema/companies.schema.js";
-
+import { count } from "drizzle-orm";
 class CompanyRepository {
-  async findAll() {
-    return await db
-      .select()
-      .from(companies);
+async findAll({
+  limit,
+  offset,
+  companyId,
+} = {}) {
+  const conditions = [];
+
+  if (companyId) {
+    conditions.push(
+      eq(squads.companyId, companyId)
+    );
   }
+
+  return await db
+    .select()
+    .from(squads)
+    .where(
+      conditions.length
+        ? and(...conditions)
+        : undefined
+    )
+    .limit(limit)
+    .offset(offset);
+}
 
   async findById(id) {
     const result = await db
@@ -54,6 +73,31 @@ class CompanyRepository {
 
     return result[0] || null;
   }
+ async countAll({ companyId } = {}) {
+  const conditions = [];
+
+  if (companyId) {
+    conditions.push(
+      eq(squads.companyId, companyId)
+    );
+  }
+
+  const result = await db
+    .select({
+      count: count(),
+    })
+    .from(squads)
+    .where(
+      conditions.length
+        ? and(...conditions)
+        : undefined
+    );
+
+  return Number(
+    result[0]?.count || 0
+  );
+}
+
 }
 
 export default new CompanyRepository();
