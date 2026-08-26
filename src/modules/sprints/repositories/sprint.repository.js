@@ -3,6 +3,7 @@ import {
   and,
   count,
   asc,
+  desc,
   lt,
   gt,
   ne,
@@ -12,32 +13,51 @@ import { db } from "../../../db/index.js";
 import { sprints } from "../../../db/schema/sprints.schema.js";
 
 class SprintRepository {
-  async findAllBySquadId(
-    squadId,
-    {
-      limit,
-      offset,
-      status,
-    } = {}
-  ) {
-    const conditions = [
-      eq(sprints.squadId, squadId),
-    ];
+ async findAllBySquadId(
+  squadId,
+  {
+    limit,
+    offset,
+    status,
+    sortBy = "startDate",
+    sortOrder = "asc",
+  } = {}
+) {
+  const conditions = [
+    eq(sprints.squadId, squadId),
+  ];
 
-    if (status) {
-      conditions.push(
-        eq(sprints.status, status)
-      );
-    }
-
-    return await db
-      .select()
-      .from(sprints)
-      .where(and(...conditions))
-      .orderBy(asc(sprints.startDate))
-      .limit(limit)
-      .offset(offset);
+  if (status) {
+    conditions.push(
+      eq(sprints.status, status)
+    );
   }
+
+  const sortColumns = {
+    name: sprints.name,
+    startDate: sprints.startDate,
+    endDate: sprints.endDate,
+    createdAt: sprints.createdAt,
+    updatedAt: sprints.updatedAt,
+  };
+
+  const sortColumn =
+    sortColumns[sortBy] ||
+    sprints.startDate;
+
+  const order =
+    sortOrder === "desc"
+      ? desc(sortColumn)
+      : asc(sortColumn);
+
+  return await db
+    .select()
+    .from(sprints)
+    .where(and(...conditions))
+    .orderBy(order)
+    .limit(limit)
+    .offset(offset);
+}
 
   async countBySquadId(
     squadId,

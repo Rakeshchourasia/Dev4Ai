@@ -169,9 +169,14 @@ class TicketService {
     });
   }
 
-async getAllBySprint(sprintId, query) {
+async getAllBySprint(
+  sprintId,
+  query = {}
+) {
   const sprint =
-    await sprintRepository.findById(sprintId);
+    await sprintRepository.findById(
+      sprintId
+    );
 
   if (!sprint) {
     throw new AppError(
@@ -198,6 +203,8 @@ async getAllBySprint(sprintId, query) {
         limit,
         offset,
         ...filters,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
       }
     );
 
@@ -217,9 +224,14 @@ async getAllBySprint(sprintId, query) {
   };
 }
 
-async getAllBySquad(squadId, query) {
+async getAllBySquad(
+  squadId,
+  query = {}
+) {
   const squad =
-    await squadRepository.findById(squadId);
+    await squadRepository.findById(
+      squadId
+    );
 
   if (!squad) {
     throw new AppError(
@@ -246,6 +258,8 @@ async getAllBySquad(squadId, query) {
         limit,
         offset,
         ...filters,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
       }
     );
 

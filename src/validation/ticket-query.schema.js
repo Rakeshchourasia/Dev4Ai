@@ -30,4 +30,18 @@ export const ticketQuerySchema = z.object({
       "URGENT",
     ])
     .optional(),
+
+  sortBy: z
+    .enum([
+      "title",
+      "priority",
+      "status",
+      "createdAt",
+      "updatedAt",
+    ])
+    .default("createdAt"),
+
+  sortOrder: z
+    .enum(["asc", "desc"])
+    .default("desc"),
 });

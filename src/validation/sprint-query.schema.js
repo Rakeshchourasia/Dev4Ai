@@ -21,4 +21,18 @@ export const sprintQuerySchema = z.object({
       "COMPLETED",
     ])
     .optional(),
+
+  sortBy: z
+    .enum([
+      "name",
+      "startDate",
+      "endDate",
+      "createdAt",
+      "updatedAt",
+    ])
+    .default("startDate"),
+
+  sortOrder: z
+    .enum(["asc", "desc"])
+    .default("asc"),
 });

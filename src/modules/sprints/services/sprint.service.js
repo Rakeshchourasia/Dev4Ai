@@ -81,57 +81,59 @@ class SprintService {
     });
   }
 
-  async getAllBySquad(squadId, query) {
-    // Check Squad
-    const squad =
-      await squadRepository.findById(squadId);
+ async getAllBySquad(
+  squadId,
+  query = {}
+) {
+  const squad =
+    await squadRepository.findById(
+      squadId
+    );
 
-    if (!squad) {
-      throw new AppError(
-        "Squad not found",
-        404
-      );
-    }
+  if (!squad) {
+    throw new AppError(
+      "Squad not found",
+      404
+    );
+  }
 
-    // Pagination
-    const {
+  const {
+    page,
+    limit,
+    offset,
+  } = getPagination(query);
+
+  const filters = {
+    status: query.status,
+  };
+
+  const sprints =
+    await sprintRepository.findAllBySquadId(
+      squadId,
+      {
+        limit,
+        offset,
+        ...filters,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+      }
+    );
+
+  const total =
+    await sprintRepository.countBySquadId(
+      squadId,
+      filters
+    );
+
+  return {
+    sprints,
+    pagination: buildPagination(
       page,
       limit,
-      offset,
-    } = getPagination(query);
-
-    // Filters
-    const filters = {
-      status: query.status,
-    };
-
-    // Fetch data
-    const sprints =
-      await sprintRepository.findAllBySquadId(
-        squadId,
-        {
-          limit,
-          offset,
-          ...filters,
-        }
-      );
-
-    // Count
-    const total =
-      await sprintRepository.countBySquadId(
-        squadId,
-        filters
-      );
-
-    return {
-      sprints,
-      pagination: buildPagination(
-        page,
-        limit,
-        total
-      ),
-    };
-  }
+      total
+    ),
+  };
+}
   async getById(id) {
     const sprint = await sprintRepository.findById(id);
 
