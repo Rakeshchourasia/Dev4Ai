@@ -4,11 +4,16 @@ import authRepository from "../../auth/repositories/auth.repository.js";
 import AppError from "../../../shared/errors/AppError.js";
 
 class SquadMemberService {
+  // ==========================================
+  // ADD MEMBER
+  // ==========================================
+
   async addMember(squadId, userId) {
     // 1. Check Squad
-    const squad = await squadRepository.findById(
-      squadId
-    );
+    const squad =
+      await squadRepository.findById(
+        squadId
+      );
 
     if (!squad) {
       throw new AppError(
@@ -18,9 +23,10 @@ class SquadMemberService {
     }
 
     // 2. Check User
-    const user = await authRepository.findById(
-      userId
-    );
+    const user =
+      await authRepository.findById(
+        userId
+      );
 
     if (!user) {
       throw new AppError(
@@ -50,11 +56,16 @@ class SquadMemberService {
     );
   }
 
+  // ==========================================
+  // GET ALL MEMBERS
+  // ==========================================
+
   async getMembers(squadId) {
-    // Check Squad
-    const squad = await squadRepository.findById(
-      squadId
-    );
+    // 1. Check Squad
+    const squad =
+      await squadRepository.findById(
+        squadId
+      );
 
     if (!squad) {
       throw new AppError(
@@ -63,16 +74,25 @@ class SquadMemberService {
       );
     }
 
+    // 2. Get members
     return await squadMemberRepository.findAllMembers(
       squadId
     );
   }
 
-  async checkMembership(squadId, userId) {
-    // Check Squad
-    const squad = await squadRepository.findById(
-      squadId
-    );
+  // ==========================================
+  // CHECK MEMBERSHIP
+  // ==========================================
+
+  async checkMembership(
+    squadId,
+    userId
+  ) {
+    // 1. Check Squad
+    const squad =
+      await squadRepository.findById(
+        squadId
+      );
 
     if (!squad) {
       throw new AppError(
@@ -81,10 +101,11 @@ class SquadMemberService {
       );
     }
 
-    // Check User
-    const user = await authRepository.findById(
-      userId
-    );
+    // 2. Check User
+    const user =
+      await authRepository.findById(
+        userId
+      );
 
     if (!user) {
       throw new AppError(
@@ -93,17 +114,26 @@ class SquadMemberService {
       );
     }
 
+    // 3. Check membership
     return await squadMemberRepository.isMember(
       squadId,
       userId
     );
   }
 
-  async removeMember(squadId, userId) {
-    // Check Squad
-    const squad = await squadRepository.findById(
-      squadId
-    );
+  // ==========================================
+  // REMOVE MEMBER
+  // ==========================================
+
+  async removeMember(
+    squadId,
+    userId
+  ) {
+    // 1. Check Squad
+    const squad =
+      await squadRepository.findById(
+        squadId
+      );
 
     if (!squad) {
       throw new AppError(
@@ -112,7 +142,20 @@ class SquadMemberService {
       );
     }
 
-    // Check membership
+    // 2. Check User
+    const user =
+      await authRepository.findById(
+        userId
+      );
+
+    if (!user) {
+      throw new AppError(
+        "User not found",
+        404
+      );
+    }
+
+    // 3. Check membership
     const member =
       await squadMemberRepository.findMember(
         squadId,
@@ -126,6 +169,7 @@ class SquadMemberService {
       );
     }
 
+    // 4. Remove member
     await squadMemberRepository.removeMember(
       squadId,
       userId

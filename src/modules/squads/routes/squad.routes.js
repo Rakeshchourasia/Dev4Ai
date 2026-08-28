@@ -3,9 +3,9 @@ import { Router } from "express";
 import squadController from "../controllers/squad.controller.js";
 
 import authenticate from "../../../shared/middlewares/auth.middleware.js";
+import authorize from "../../../shared/middlewares/authorize.js";
 
 import { validate } from "../../../shared/middlewares/validate.js";
-
 import { validateQuery } from "../../../shared/middlewares/validateQuery.js";
 
 import {
@@ -26,6 +26,7 @@ const router = Router();
 router.post(
   "/",
   authenticate,
+  authorize("ADMIN"),
   validate(createSquadSchema),
   squadController.create
 );
@@ -58,6 +59,7 @@ router.get(
 router.patch(
   "/:id",
   authenticate,
+  authorize("ADMIN"),
   validate(updateSquadSchema),
   squadController.update
 );
@@ -69,6 +71,7 @@ router.patch(
 router.delete(
   "/:id",
   authenticate,
+  authorize("ADMIN"),
   squadController.delete
 );
 

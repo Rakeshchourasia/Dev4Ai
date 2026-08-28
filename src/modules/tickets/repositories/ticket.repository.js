@@ -1,82 +1,181 @@
+
 import {
   eq,
   and,
   count,
   asc,
   desc,
+  sql,
 } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { tickets } from "../../../db/schema/tickets.schema.js";
 
 class TicketRepository {
-async findAllBySprintId(
-  sprintId,
-  {
-    limit,
-    offset,
-    status,
-    priority,
+  // ==========================================
+  // GET SORT ORDER
+  // ==========================================
+
+  getSortOrder(
     sortBy = "createdAt",
-    sortOrder = "desc",
-  } = {}
-) {
-  const conditions = [
-    eq(tickets.sprintId, sprintId),
-  ];
+    sortOrder = "desc"
+  ) {
+    // ------------------------------------------
+    // PRIORITY SORTING
+    // LOW → MEDIUM → HIGH → URGENT
+    // ------------------------------------------
 
-  if (status) {
-    conditions.push(
-      eq(tickets.status, status)
-    );
-  }
+    if (sortBy === "priority") {
+      if (sortOrder === "asc") {
+        return sql`
+          CASE ${tickets.priority}
+            WHEN 'LOW' THEN 1
+            WHEN 'MEDIUM' THEN 2
+            WHEN 'HIGH' THEN 3
+            WHEN 'URGENT' THEN 4
+          END ASC
+        `;
+      }
 
-  if (priority) {
-    conditions.push(
-      eq(tickets.priority, priority)
-    );
-  }
+      return sql`
+        CASE ${tickets.priority}
+          WHEN 'URGENT' THEN 1
+          WHEN 'HIGH' THEN 2
+          WHEN 'MEDIUM' THEN 3
+          WHEN 'LOW' THEN 4
+        END ASC
+      `;
+    }
 
-  const sortColumns = {
-    title: tickets.title,
-    priority: tickets.priority,
-    status: tickets.status,
-    createdAt: tickets.createdAt,
-    updatedAt: tickets.updatedAt,
-  };
+    // ------------------------------------------
+    // STATUS SORTING
+    // TODO → IN_PROGRESS → DONE
+    // ------------------------------------------
 
-  const sortColumn =
-    sortColumns[sortBy] ||
-    tickets.createdAt;
+    if (sortBy === "status") {
+      if (sortOrder === "asc") {
+        return sql`
+          CASE ${tickets.status}
+            WHEN 'TODO' THEN 1
+            WHEN 'IN_PROGRESS' THEN 2
+            WHEN 'DONE' THEN 3
+          END ASC
+        `;
+      }
 
-  const order =
-    sortOrder === "asc"
+      return sql`
+        CASE ${tickets.status}
+          WHEN 'DONE' THEN 1
+          WHEN 'IN_PROGRESS' THEN 2
+          WHEN 'TODO' THEN 3
+        END ASC
+      `;
+    }
+
+    // ------------------------------------------
+    // NORMAL COLUMN SORTING
+    // ------------------------------------------
+
+    const sortColumns = {
+      title: tickets.title,
+      createdAt: tickets.createdAt,
+      updatedAt: tickets.updatedAt,
+    };
+
+    const sortColumn =
+      sortColumns[sortBy] ||
+      tickets.createdAt;
+
+    return sortOrder === "asc"
       ? asc(sortColumn)
       : desc(sortColumn);
+  }
 
-  return await db
-    .select()
-    .from(tickets)
-    .where(and(...conditions))
-    .orderBy(order)
-    .limit(limit)
-    .offset(offset);
-}
+  // ==========================================
+  // GET TICKETS BY SPRINT
+  // ==========================================
 
-  async countBySprintId(
+  async findAllBySprintId(
     sprintId,
-    { status, priority } = {}
+    {
+      limit,
+      offset,
+      status,
+      priority,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = {}
   ) {
     const conditions = [
       eq(tickets.sprintId, sprintId),
     ];
 
+    // ------------------------------------------
+    // STATUS FILTER
+    // ------------------------------------------
+
     if (status) {
       conditions.push(
         eq(tickets.status, status)
       );
     }
 
+    // ------------------------------------------
+    // PRIORITY FILTER
+    // ------------------------------------------
+
+    if (priority) {
+      conditions.push(
+        eq(tickets.priority, priority)
+      );
+    }
+
+    // ------------------------------------------
+    // SORTING
+    // ------------------------------------------
+
+    const order =
+      this.getSortOrder(
+        sortBy,
+        sortOrder
+      );
+
+    // ------------------------------------------
+    // QUERY
+    // ------------------------------------------
+
+    return await db
+      .select()
+      .from(tickets)
+      .where(and(...conditions))
+      .orderBy(order)
+      .limit(limit)
+      .offset(offset);
+  }
+
+  // ==========================================
+  // COUNT TICKETS BY SPRINT
+  // ==========================================
+
+  async countBySprintId(
+    sprintId,
+    {
+      status,
+      priority,
+    } = {}
+  ) {
+    const conditions = [
+      eq(tickets.sprintId, sprintId),
+    ];
+
+    // Status filter
+    if (status) {
+      conditions.push(
+        eq(tickets.status, status)
+      );
+    }
+
+    // Priority filter
     if (priority) {
       conditions.push(
         eq(tickets.priority, priority)
@@ -90,75 +189,96 @@ async findAllBySprintId(
       .from(tickets)
       .where(and(...conditions));
 
-    return Number(result[0]?.count || 0);
-  }
-
-async findAllBySquadId(
-  squadId,
-  {
-    limit,
-    offset,
-    status,
-    priority,
-    sortBy = "createdAt",
-    sortOrder = "desc",
-  } = {}
-) {
-  const conditions = [
-    eq(tickets.squadId, squadId),
-  ];
-
-  if (status) {
-    conditions.push(
-      eq(tickets.status, status)
+    return Number(
+      result[0]?.count || 0
     );
   }
 
-  if (priority) {
-    conditions.push(
-      eq(tickets.priority, priority)
-    );
-  }
+  // ==========================================
+  // GET TICKETS BY SQUAD
+  // ==========================================
 
-  const sortColumns = {
-    title: tickets.title,
-    priority: tickets.priority,
-    status: tickets.status,
-    createdAt: tickets.createdAt,
-    updatedAt: tickets.updatedAt,
-  };
-
-  const sortColumn =
-    sortColumns[sortBy] ||
-    tickets.createdAt;
-
-  const order =
-    sortOrder === "asc"
-      ? asc(sortColumn)
-      : desc(sortColumn);
-
-  return await db
-    .select()
-    .from(tickets)
-    .where(and(...conditions))
-    .orderBy(order)
-    .limit(limit)
-    .offset(offset);
-}
-  async countBySquadId(
+  async findAllBySquadId(
     squadId,
-    { status, priority } = {}
+    {
+      limit,
+      offset,
+      status,
+      priority,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = {}
   ) {
     const conditions = [
       eq(tickets.squadId, squadId),
     ];
 
+    // ------------------------------------------
+    // STATUS FILTER
+    // ------------------------------------------
+
     if (status) {
       conditions.push(
         eq(tickets.status, status)
       );
     }
 
+    // ------------------------------------------
+    // PRIORITY FILTER
+    // ------------------------------------------
+
+    if (priority) {
+      conditions.push(
+        eq(tickets.priority, priority)
+      );
+    }
+
+    // ------------------------------------------
+    // SORTING
+    // ------------------------------------------
+
+    const order =
+      this.getSortOrder(
+        sortBy,
+        sortOrder
+      );
+
+    // ------------------------------------------
+    // QUERY
+    // ------------------------------------------
+
+    return await db
+      .select()
+      .from(tickets)
+      .where(and(...conditions))
+      .orderBy(order)
+      .limit(limit)
+      .offset(offset);
+  }
+
+  // ==========================================
+  // COUNT TICKETS BY SQUAD
+  // ==========================================
+
+  async countBySquadId(
+    squadId,
+    {
+      status,
+      priority,
+    } = {}
+  ) {
+    const conditions = [
+      eq(tickets.squadId, squadId),
+    ];
+
+    // Status filter
+    if (status) {
+      conditions.push(
+        eq(tickets.status, status)
+      );
+    }
+
+    // Priority filter
     if (priority) {
       conditions.push(
         eq(tickets.priority, priority)
@@ -172,8 +292,11 @@ async findAllBySquadId(
       .from(tickets)
       .where(and(...conditions));
 
-    return Number(result[0]?.count || 0);
+    return Number(
+      result[0]?.count || 0
+    );
   }
 }
 
 export default new TicketRepository();
+

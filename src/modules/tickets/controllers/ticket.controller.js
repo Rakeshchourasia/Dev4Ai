@@ -1,9 +1,16 @@
 import ticketService from "../services/ticket.service.js";
 
 class TicketController {
+  // ==========================================
+  // CREATE TICKET
+  // ==========================================
+
   async create(req, res, next) {
     try {
-      const ticket = await ticketService.create(req.body);
+      const ticket =
+        await ticketService.create(
+          req.body
+        );
 
       return res.status(201).json({
         success: true,
@@ -15,85 +22,68 @@ class TicketController {
     }
   }
 
-async getAllBySprint(sprintId, query) {
-  const sprint =
-    await sprintRepository.findById(sprintId);
+  // ==========================================
+  // GET TICKETS BY SPRINT
+  // ==========================================
 
-  if (!sprint) {
-    throw new AppError(
-      "Sprint not found",
-      404
-    );
+  async getAllBySprint(req, res, next) {
+    try {
+      const { sprintId } =
+        req.params;
+
+      const result =
+        await ticketService.getAllBySprint(
+          sprintId,
+          req.query
+        );
+
+      return res.status(200).json({
+        success: true,
+        message: "Tickets fetched successfully",
+        data: result.tickets,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
 
-  const {
-    page,
-    limit,
-    offset,
-  } = getPagination(query);
+  // ==========================================
+  // GET TICKETS BY SQUAD
+  // ==========================================
 
-  const status = query.status;
-  const priority = query.priority;
+  async getAllBySquad(req, res, next) {
+    try {
+      const { squadId } =
+        req.params;
 
-  const tickets =
-    await ticketRepository.findAllBySprintId(
-      sprintId,
-      {
-        limit,
-        offset,
-        status,
-        priority,
-      }
-    );
+      const result =
+        await ticketService.getAllBySquad(
+          squadId,
+          req.query
+        );
 
-  const total =
-    await ticketRepository.countBySprintId(
-      sprintId,
-      {
-        status,
-        priority,
-      }
-    );
-
-  return {
-    tickets,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(
-        total / limit
-      ),
-    },
-  };
-}
-
-async getAllBySquad(req, res, next) {
-  try {
-    const { squadId } = req.params;
-
-    const result =
-      await ticketService.getAllBySquad(
-        squadId,
-        req.query
-      );
-
-    return res.status(200).json({
-      success: true,
-      message: "Tickets fetched successfully",
-      data: result.tickets,
-      pagination: result.pagination,
-    });
-  } catch (error) {
-    next(error);
+      return res.status(200).json({
+        success: true,
+        message: "Tickets fetched successfully",
+        data: result.tickets,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-}
+
+  // ==========================================
+  // GET TICKET BY ID
+  // ==========================================
 
   async getById(req, res, next) {
     try {
-      const ticket = await ticketService.getById(
-        req.params.id
-      );
+      const ticket =
+        await ticketService.getById(
+          req.params.id
+        );
 
       return res.status(200).json({
         success: true,
@@ -105,12 +95,17 @@ async getAllBySquad(req, res, next) {
     }
   }
 
+  // ==========================================
+  // UPDATE TICKET
+  // ==========================================
+
   async update(req, res, next) {
     try {
-      const ticket = await ticketService.update(
-        req.params.id,
-        req.body
-      );
+      const ticket =
+        await ticketService.update(
+          req.params.id,
+          req.body
+        );
 
       return res.status(200).json({
         success: true,
@@ -122,11 +117,16 @@ async getAllBySquad(req, res, next) {
     }
   }
 
+  // ==========================================
+  // DELETE TICKET
+  // ==========================================
+
   async delete(req, res, next) {
     try {
-      const result = await ticketService.delete(
-        req.params.id
-      );
+      const result =
+        await ticketService.delete(
+          req.params.id
+        );
 
       return res.status(200).json({
         success: true,

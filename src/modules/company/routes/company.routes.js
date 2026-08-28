@@ -3,11 +3,9 @@ import { Router } from "express";
 import companyController from "../controllers/company.controller.js";
 
 import authenticate from "../../../shared/middlewares/auth.middleware.js";
-
 import authorize from "../../../shared/middlewares/authorize.js";
 
 import { validate } from "../../../shared/middlewares/validate.js";
-
 import { validateQuery } from "../../../shared/middlewares/validateQuery.js";
 
 import {
@@ -28,7 +26,7 @@ const router = Router();
 router.post(
   "/",
   authenticate,
-  authorize("admin"),
+  authorize("ADMIN"),
   validate(createCompanySchema),
   companyController.create
 );
@@ -61,7 +59,7 @@ router.get(
 router.patch(
   "/:id",
   authenticate,
-  authorize("admin"),
+  authorize("ADMIN"),
   validate(updateCompanySchema),
   companyController.update
 );
@@ -73,7 +71,7 @@ router.patch(
 router.delete(
   "/:id",
   authenticate,
-  authorize("admin"),
+  authorize("ADMIN"),
   companyController.delete
 );
 

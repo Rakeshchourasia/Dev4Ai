@@ -1,3 +1,4 @@
+
 import authRepository from "../repositories/auth.repository.js";
 import AppError from "../../../shared/errors/AppError.js";
 
@@ -13,9 +14,16 @@ import {
 } from "../../../shared/utils/password.js";
 
 class AuthService {
+  // ==========================================
+  // LOGIN
+  // ==========================================
+
   async login(userData) {
     // 1. Validate input
-    if (!userData?.email || !userData?.password) {
+    if (
+      !userData?.email ||
+      !userData?.password
+    ) {
       throw new AppError(
         "Email and password are required",
         400
@@ -23,9 +31,10 @@ class AuthService {
     }
 
     // 2. Find existing user
-    const user = await authRepository.findByEmail(
-      userData.email
-    );
+    const user =
+      await authRepository.findByEmail(
+        userData.email
+      );
 
     // 3. User must already exist
     if (!user) {
@@ -35,11 +44,12 @@ class AuthService {
       );
     }
 
-    // 4. Compare password with stored bcrypt hash
-    const passwordValid = await comparePassword(
-      userData.password,
-      user.password
-    );
+    // 4. Compare password
+    const passwordValid =
+      await comparePassword(
+        userData.password,
+        user.password
+      );
 
     if (!passwordValid) {
       throw new AppError(
@@ -49,28 +59,36 @@ class AuthService {
     }
 
     // 5. Generate Access Token
-    const accessToken = generateAccessToken({
-      id: user.id,
-      email: user.email,
-    });
+    const accessToken =
+      generateAccessToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      });
 
     // 6. Generate Refresh Token
-    const refreshToken = generateRefreshToken({
-      id: user.id,
-      email: user.email,
-    });
+    const refreshToken =
+      generateRefreshToken({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      });
 
     // 7. Store Refresh Token
     await authRepository.createRefreshToken({
       userId: user.id,
       token: refreshToken,
       expiresAt: new Date(
-        Date.now() + 7 * 24 * 60 * 60 * 1000
+        Date.now() +
+          7 * 24 * 60 * 60 * 1000
       ),
     });
 
     // 8. Never return password
-    const { password, ...safeUser } = user;
+    const {
+      password,
+      ...safeUser
+    } = user;
 
     return {
       user: safeUser,
@@ -79,18 +97,35 @@ class AuthService {
     };
   }
 
+  // ==========================================
+  // GET CURRENT USER
+  // ==========================================
+
   async getCurrentUser(userId) {
-    const user = await authRepository.findById(userId);
+    const user =
+      await authRepository.findById(
+        userId
+      );
 
     if (!user) {
-      throw new AppError("User not found", 404);
+      throw new AppError(
+        "User not found",
+        404
+      );
     }
 
     // Never return password
-    const { password, ...safeUser } = user;
+    const {
+      password,
+      ...safeUser
+    } = user;
 
     return safeUser;
   }
+
+  // ==========================================
+  // REFRESH ACCESS TOKEN
+  // ==========================================
 
   async refresh(refreshToken) {
     if (!refreshToken) {
@@ -102,8 +137,12 @@ class AuthService {
 
     let payload;
 
+    // 1. Verify refresh token
     try {
-      payload = verifyRefreshToken(refreshToken);
+      payload =
+        verifyRefreshToken(
+          refreshToken
+        );
     } catch (error) {
       throw new AppError(
         "Invalid or expired refresh token",
@@ -111,7 +150,7 @@ class AuthService {
       );
     }
 
-    // Check that token still exists in database
+    // 2. Check token exists in database
     const savedToken =
       await authRepository.findRefreshToken(
         refreshToken
@@ -124,16 +163,22 @@ class AuthService {
       );
     }
 
-    // Generate new Access Token
-    const accessToken = generateAccessToken({
-      id: payload.id,
-      email: payload.email,
-    });
+    // 3. Generate new Access Token
+    const accessToken =
+      generateAccessToken({
+        id: payload.id,
+        email: payload.email,
+        role: payload.role,
+      });
 
     return {
       accessToken,
     };
   }
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
 
   async logout(refreshToken) {
     if (!refreshToken) {
@@ -143,7 +188,7 @@ class AuthService {
       );
     }
 
-    // Revoke this refresh token
+    // Revoke refresh token
     await authRepository.deleteRefreshToken(
       refreshToken
     );
@@ -153,11 +198,16 @@ class AuthService {
     };
   }
 
+  // ==========================================
+  // REGISTER
+  // ==========================================
+
   async register(userData) {
     // 1. Check whether email already exists
-    const existingUser = await authRepository.findByEmail(
-      userData.email
-    );
+    const existingUser =
+      await authRepository.findByEmail(
+        userData.email
+      );
 
     if (existingUser) {
       throw new AppError(
@@ -167,24 +217,30 @@ class AuthService {
     }
 
     // 2. Hash password
-    const hashedPassword = await hashPassword(
-      userData.password
-    );
+    const hashedPassword =
+      await hashPassword(
+        userData.password
+      );
 
     // 3. Create user
-    const user = await authRepository.createUser({
-      name: userData.name,
-      email: userData.email,
-      password: hashedPassword,
-    });
+    // IMPORTANT:
+    // Do not accept role from registration.
+    // Database defaults new users to MEMBER.
+    const user =
+      await authRepository.createUser({
+        name: userData.name,
+        email: userData.email,
+        password: hashedPassword,
+      });
 
     // 4. Never return password
-    const { password, ...safeUser } = user;
+    const {
+      password,
+      ...safeUser
+    } = user;
 
     return safeUser;
   }
-
-
 }
 
 export default new AuthService();
