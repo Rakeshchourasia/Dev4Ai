@@ -24,46 +24,27 @@ export const createTicketSchema = z.object({
 
   title: z
     .string()
-    .min(2, {
-      message: "Ticket title must be at least 2 characters long",
-    }),
+    .trim()
+    .min(1, "Ticket title is required")
+    .max(255, "Ticket title must not exceed 255 characters"),
 
   description: z
     .string()
-    .optional(),
+    .trim()
+    .max(
+      5000,
+      "Ticket description must not exceed 5000 characters"
+    )
+    .optional()
+    .nullable(),
 
   priority: z
-    .enum(priority)
-    .optional(),
-
-  createdBy: z.string().uuid({
-    message: "Invalid creator user ID",
-  }),
-
-  assignedTo: z
-    .string()
-    .uuid({
-      message: "Invalid assigned user ID",
-    })
-    .optional(),
-});
-
-export const updateTicketSchema = z.object({
-  title: z
-    .string()
-    .min(2)
-    .optional(),
-
-  description: z
-    .string()
-    .optional(),
-
-  status: z
-    .enum(status)
-    .optional(),
-
-  priority: z
-    .enum(priority)
+    .enum([
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "URGENT",
+    ])
     .optional(),
 
   assignedTo: z
@@ -71,6 +52,76 @@ export const updateTicketSchema = z.object({
     .uuid({
       message: "Invalid assigned user ID",
     })
-    .nullable()
-    .optional(),
+    .optional()
+    .nullable(),
 });
+
+
+export const updateTicketSchema = z
+  .object({
+    squadId: z
+      .string()
+      .uuid({
+        message: "Invalid squad ID",
+      })
+      .optional(),
+
+    sprintId: z
+      .string()
+      .uuid({
+        message: "Invalid sprint ID",
+      })
+      .optional(),
+
+    title: z
+      .string()
+      .trim()
+      .min(1, "Ticket title cannot be empty")
+      .max(
+        255,
+        "Ticket title must not exceed 255 characters"
+      )
+      .optional(),
+
+    description: z
+      .string()
+      .trim()
+      .max(
+        5000,
+        "Ticket description must not exceed 5000 characters"
+      )
+      .optional()
+      .nullable(),
+
+    status: z
+      .enum([
+        "TODO",
+        "IN_PROGRESS",
+        "DONE",
+      ])
+      .optional(),
+
+    priority: z
+      .enum([
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "URGENT",
+      ])
+      .optional(),
+
+    assignedTo: z
+      .string()
+      .uuid({
+        message: "Invalid assigned user ID",
+      })
+      .optional()
+      .nullable(),
+  })
+  .refine(
+    (data) => Object.keys(data).length > 0,
+    {
+      message:
+        "At least one field is required for update",
+    }
+  );

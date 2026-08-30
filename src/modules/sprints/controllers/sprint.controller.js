@@ -15,32 +15,35 @@ class SprintController {
     }
   }
 
- async getAllBySquad(req, res, next) {
-  try {
-    const { squadId } = req.params;
+  async getAllBySquad(req, res, next) {
+    try {
+      const { squadId } = req.params;
 
-    const result =
-      await sprintService.getAllBySquad(
-        squadId,
-        req.query
-      );
+      const result =
+        await sprintService.getAllBySquad(
+          squadId,
+          req.query,
+          req.user
+        );
 
-    return res.status(200).json({
-      success: true,
-      message: "Sprints fetched successfully",
-      data: result.sprints,
-      pagination: result.pagination,
-    });
-  } catch (error) {
-    next(error);
+      return res.status(200).json({
+        success: true,
+        message: "Sprints fetched successfully",
+        data: result.sprints,
+        pagination: result.pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-}
 
   async getById(req, res, next) {
     try {
-      const sprint = await sprintService.getById(
-        req.params.id
-      );
+      const sprint =
+        await sprintService.getById(
+          req.params.id,
+          req.user
+        );
 
       return res.status(200).json({
         success: true,
@@ -83,25 +86,67 @@ class SprintController {
       next(error);
     }
   }
-async updateStatus(req, res, next) {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+  async updateStatus(id, status) {
+    const sprint =
+      await sprintRepository.findById(id);
 
-    const sprint = await sprintService.updateStatus(
+    if (!sprint) {
+      throw new AppError(
+        "Sprint not found",
+        404
+      );
+    }
+
+    const allowedTransitions = {
+      PLANNED: ["ACTIVE"],
+      ACTIVE: ["COMPLETED"],
+      COMPLETED: [],
+    };
+
+    const allowed =
+      allowedTransitions[sprint.status];
+
+    if (!allowed) {
+      throw new AppError(
+        `Invalid current sprint status: ${sprint.status}`,
+        400
+      );
+    }
+
+    if (!allowed.includes(status)) {
+      throw new AppError(
+        `Cannot change sprint status from ${sprint.status} to ${status}`,
+        400
+      );
+    }
+
+    // ------------------------------------------
+    // ONLY ONE ACTIVE SPRINT PER SQUAD
+    // ------------------------------------------
+
+    if (status === "ACTIVE") {
+      const activeSprint =
+        await sprintRepository.findActiveSprintBySquadId(
+          sprint.squadId,
+          sprint.id
+        );
+
+      if (activeSprint) {
+        throw new AppError(
+          "Another sprint is already active for this squad",
+          409
+        );
+      }
+    }
+
+    return await sprintRepository.update(
       id,
-      status
+      {
+        status,
+        updatedAt: new Date(),
+      }
     );
-
-    return res.status(200).json({
-      success: true,
-      message: "Sprint status updated successfully",
-      data: sprint,
-    });
-  } catch (error) {
-    next(error);
   }
-}
 
 }
 

@@ -5,7 +5,6 @@ import ticketController from "../controllers/ticket.controller.js";
 import authenticate from "../../../shared/middlewares/auth.middleware.js";
 
 import { validate } from "../../../shared/middlewares/validate.js";
-
 import { validateQuery } from "../../../shared/middlewares/validateQuery.js";
 
 import {

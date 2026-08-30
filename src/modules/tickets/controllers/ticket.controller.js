@@ -9,7 +9,8 @@ class TicketController {
     try {
       const ticket =
         await ticketService.create(
-          req.body
+          req.body,
+          req.user
         );
 
       return res.status(201).json({
@@ -28,13 +29,11 @@ class TicketController {
 
   async getAllBySprint(req, res, next) {
     try {
-      const { sprintId } =
-        req.params;
-
       const result =
         await ticketService.getAllBySprint(
-          sprintId,
-          req.query
+          req.params.sprintId,
+          req.query,
+          req.user
         );
 
       return res.status(200).json({
@@ -54,13 +53,11 @@ class TicketController {
 
   async getAllBySquad(req, res, next) {
     try {
-      const { squadId } =
-        req.params;
-
       const result =
         await ticketService.getAllBySquad(
-          squadId,
-          req.query
+          req.params.squadId,
+          req.query,
+          req.user
         );
 
       return res.status(200).json({
@@ -82,7 +79,8 @@ class TicketController {
     try {
       const ticket =
         await ticketService.getById(
-          req.params.id
+          req.params.id,
+          req.user
         );
 
       return res.status(200).json({
@@ -104,7 +102,8 @@ class TicketController {
       const ticket =
         await ticketService.update(
           req.params.id,
-          req.body
+          req.body,
+          req.user
         );
 
       return res.status(200).json({
@@ -125,7 +124,8 @@ class TicketController {
     try {
       const result =
         await ticketService.delete(
-          req.params.id
+          req.params.id,
+          req.user
         );
 
       return res.status(200).json({

@@ -4,32 +4,52 @@ import squadMemberController from "../controllers/squadMember.controller.js";
 
 import authenticate from "../../../shared/middlewares/auth.middleware.js";
 import authorize from "../../../shared/middlewares/authorize.js";
+import { validate } from "../../../shared/middlewares/validate.js";
+
+import {
+  addSquadMemberSchema,
+} from "../../../validation/squad-member.schema.js";
 
 const router = Router();
 
-// Add member
+// ==========================================
+// ADD MEMBER
+// ADMIN ONLY
+// ==========================================
+
 router.post(
   "/:squadId/members",
   authenticate,
   authorize("ADMIN"),
+  validate(addSquadMemberSchema),
   squadMemberController.addMember
 );
 
-// Get members
+// ==========================================
+// GET MEMBERS
+// ==========================================
+
 router.get(
   "/:squadId/members",
   authenticate,
   squadMemberController.getMembers
 );
 
-// Check membership
+// ==========================================
+// CHECK MEMBERSHIP
+// ==========================================
+
 router.get(
   "/:squadId/members/:userId",
   authenticate,
   squadMemberController.checkMembership
 );
 
-// Remove member
+// ==========================================
+// REMOVE MEMBER
+// ADMIN ONLY
+// ==========================================
+
 router.delete(
   "/:squadId/members/:userId",
   authenticate,
