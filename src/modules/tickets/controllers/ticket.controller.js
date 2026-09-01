@@ -2,7 +2,7 @@ import ticketService from "../services/ticket.service.js";
 
 class TicketController {
   // ==========================================
-  // CREATE TICKET
+  // CREATE
   // ==========================================
 
   async create(req, res, next) {
@@ -15,7 +15,8 @@ class TicketController {
 
       return res.status(201).json({
         success: true,
-        message: "Ticket created successfully",
+        message:
+          "Ticket created successfully",
         data: ticket,
       });
     } catch (error) {
@@ -24,10 +25,14 @@ class TicketController {
   }
 
   // ==========================================
-  // GET TICKETS BY SPRINT
+  // GET BY SPRINT
   // ==========================================
 
-  async getAllBySprint(req, res, next) {
+  async getAllBySprint(
+    req,
+    res,
+    next
+  ) {
     try {
       const result =
         await ticketService.getAllBySprint(
@@ -38,9 +43,11 @@ class TicketController {
 
       return res.status(200).json({
         success: true,
-        message: "Tickets fetched successfully",
+        message:
+          "Tickets fetched successfully",
         data: result.tickets,
-        pagination: result.pagination,
+        pagination:
+          result.pagination,
       });
     } catch (error) {
       next(error);
@@ -48,10 +55,14 @@ class TicketController {
   }
 
   // ==========================================
-  // GET TICKETS BY SQUAD
+  // GET BY SQUAD
   // ==========================================
 
-  async getAllBySquad(req, res, next) {
+  async getAllBySquad(
+    req,
+    res,
+    next
+  ) {
     try {
       const result =
         await ticketService.getAllBySquad(
@@ -62,9 +73,11 @@ class TicketController {
 
       return res.status(200).json({
         success: true,
-        message: "Tickets fetched successfully",
+        message:
+          "Tickets fetched successfully",
         data: result.tickets,
-        pagination: result.pagination,
+        pagination:
+          result.pagination,
       });
     } catch (error) {
       next(error);
@@ -72,7 +85,7 @@ class TicketController {
   }
 
   // ==========================================
-  // GET TICKET BY ID
+  // GET BY ID
   // ==========================================
 
   async getById(req, res, next) {
@@ -85,7 +98,8 @@ class TicketController {
 
       return res.status(200).json({
         success: true,
-        message: "Ticket fetched successfully",
+        message:
+          "Ticket fetched successfully",
         data: ticket,
       });
     } catch (error) {
@@ -94,7 +108,7 @@ class TicketController {
   }
 
   // ==========================================
-  // UPDATE TICKET
+  // UPDATE
   // ==========================================
 
   async update(req, res, next) {
@@ -108,7 +122,8 @@ class TicketController {
 
       return res.status(200).json({
         success: true,
-        message: "Ticket updated successfully",
+        message:
+          "Ticket updated successfully",
         data: ticket,
       });
     } catch (error) {
@@ -117,7 +132,7 @@ class TicketController {
   }
 
   // ==========================================
-  // DELETE TICKET
+  // DELETE
   // ==========================================
 
   async delete(req, res, next) {

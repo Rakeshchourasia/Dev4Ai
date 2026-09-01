@@ -24,9 +24,15 @@ const VALID_PRIORITIES = [
   "URGENT",
 ];
 
+const ALLOWED_STATUS_TRANSITIONS = {
+  TODO: ["IN_PROGRESS"],
+  IN_PROGRESS: ["DONE"],
+  DONE: [],
+};
+
 class TicketService {
   // ==========================================
-  // ENSURE USER HAS ACCESS TO SQUAD
+  // ENSURE SQUAD ACCESS
   // ==========================================
 
   async ensureSquadAccess(squadId, user) {
@@ -99,7 +105,7 @@ class TicketService {
       );
     }
 
-    if (!title) {
+    if (!title?.trim()) {
       throw new AppError(
         "Ticket title is required",
         400
@@ -159,7 +165,7 @@ class TicketService {
     }
 
     // ------------------------------------------
-    // CANNOT CREATE IN COMPLETED SPRINT
+    // COMPLETED SPRINT
     // ------------------------------------------
 
     if (sprint.status === "COMPLETED") {
@@ -170,10 +176,27 @@ class TicketService {
     }
 
     // ------------------------------------------
-    // CHECK ASSIGNEE
+    // VALIDATE PRIORITY
     // ------------------------------------------
 
-    if (assignedTo) {
+    if (
+      priority &&
+      !VALID_PRIORITIES.includes(priority)
+    ) {
+      throw new AppError(
+        "Invalid ticket priority",
+        400
+      );
+    }
+
+    // ------------------------------------------
+    // VALIDATE ASSIGNEE
+    // ------------------------------------------
+
+    if (
+      assignedTo !== undefined &&
+      assignedTo !== null
+    ) {
       const assignee =
         await authRepository.findById(
           assignedTo
@@ -201,20 +224,6 @@ class TicketService {
     }
 
     // ------------------------------------------
-    // VALIDATE PRIORITY
-    // ------------------------------------------
-
-    if (
-      priority &&
-      !VALID_PRIORITIES.includes(priority)
-    ) {
-      throw new AppError(
-        "Invalid ticket priority",
-        400
-      );
-    }
-
-    // ------------------------------------------
     // CREATE
     // ------------------------------------------
 
@@ -222,23 +231,25 @@ class TicketService {
       squadId,
       sprintId,
       title: title.trim(),
-      description: description?.trim() || null,
+      description:
+        description?.trim() || null,
 
       status: "TODO",
 
       priority:
         priority || "MEDIUM",
 
-      // ALWAYS derive creator from JWT
+      // IMPORTANT:
+      // Always derive creator from JWT.
       createdBy: user.id,
 
       assignedTo:
-        assignedTo || null,
+        assignedTo ?? null,
     });
   }
 
   // ==========================================
-  // GET TICKETS BY SPRINT
+  // GET ALL BY SPRINT
   // ==========================================
 
   async getAllBySprint(
@@ -258,7 +269,6 @@ class TicketService {
       );
     }
 
-    // Check access through Sprint's Squad
     await this.ensureSquadAccess(
       sprint.squadId,
       user
@@ -295,7 +305,6 @@ class TicketService {
 
     return {
       tickets,
-
       pagination: buildPagination(
         page,
         limit,
@@ -305,7 +314,7 @@ class TicketService {
   }
 
   // ==========================================
-  // GET TICKETS BY SQUAD
+  // GET ALL BY SQUAD
   // ==========================================
 
   async getAllBySquad(
@@ -325,7 +334,6 @@ class TicketService {
       );
     }
 
-    // Check membership / ADMIN
     await this.ensureSquadAccess(
       squadId,
       user
@@ -362,7 +370,6 @@ class TicketService {
 
     return {
       tickets,
-
       pagination: buildPagination(
         page,
         limit,
@@ -372,7 +379,7 @@ class TicketService {
   }
 
   // ==========================================
-  // GET TICKET BY ID
+  // GET BY ID
   // ==========================================
 
   async getById(id, user) {
@@ -414,19 +421,24 @@ class TicketService {
     }
 
     // ------------------------------------------
-    // DETERMINE FINAL SQUAD
+    // SQUAD CANNOT BE CHANGED
     // ------------------------------------------
 
-    const finalSquadId =
-      ticketData.squadId ||
-      ticket.squadId;
+    if (
+      ticketData.squadId !== undefined
+    ) {
+      throw new AppError(
+        "Ticket squad cannot be changed",
+        400
+      );
+    }
 
     // ------------------------------------------
-    // USER MUST HAVE ACCESS TO FINAL SQUAD
+    // CHECK CURRENT SQUAD ACCESS
     // ------------------------------------------
 
     await this.ensureSquadAccess(
-      finalSquadId,
+      ticket.squadId,
       user
     );
 
@@ -434,16 +446,33 @@ class TicketService {
     // VALIDATE STATUS
     // ------------------------------------------
 
-    if (
-      ticketData.status &&
-      !VALID_STATUSES.includes(
-        ticketData.status
-      )
-    ) {
-      throw new AppError(
-        "Invalid ticket status",
-        400
-      );
+    if (ticketData.status) {
+      if (
+        !VALID_STATUSES.includes(
+          ticketData.status
+        )
+      ) {
+        throw new AppError(
+          "Invalid ticket status",
+          400
+        );
+      }
+
+      const allowedTransitions =
+        ALLOWED_STATUS_TRANSITIONS[
+          ticket.status
+        ];
+
+      if (
+        !allowedTransitions?.includes(
+          ticketData.status
+        )
+      ) {
+        throw new AppError(
+          `Cannot change ticket status from ${ticket.status} to ${ticketData.status}`,
+          400
+        );
+      }
     }
 
     // ------------------------------------------
@@ -460,24 +489,6 @@ class TicketService {
         "Invalid ticket priority",
         400
       );
-    }
-
-    // ------------------------------------------
-    // IF CHANGING SQUAD
-    // ------------------------------------------
-
-    if (ticketData.squadId) {
-      const squad =
-        await squadRepository.findById(
-          ticketData.squadId
-        );
-
-      if (!squad) {
-        throw new AppError(
-          "Squad not found",
-          404
-        );
-      }
     }
 
     // ------------------------------------------
@@ -501,11 +512,11 @@ class TicketService {
     }
 
     // ------------------------------------------
-    // SPRINT MUST BELONG TO FINAL SQUAD
+    // SPRINT MUST BELONG TO SAME SQUAD
     // ------------------------------------------
 
     if (
-      sprint.squadId !== finalSquadId
+      sprint.squadId !== ticket.squadId
     ) {
       throw new AppError(
         "Sprint does not belong to this squad",
@@ -518,11 +529,7 @@ class TicketService {
     // ------------------------------------------
 
     if (
-      sprint.status === "COMPLETED" &&
-      (
-        ticketData.sprintId ||
-        ticketData.squadId
-      )
+      sprint.status === "COMPLETED"
     ) {
       throw new AppError(
         "Cannot move ticket to a completed sprint",
@@ -535,7 +542,8 @@ class TicketService {
     // ------------------------------------------
 
     if (
-      ticketData.assignedTo
+      ticketData.assignedTo !== undefined &&
+      ticketData.assignedTo !== null
     ) {
       const assignee =
         await authRepository.findById(
@@ -549,13 +557,13 @@ class TicketService {
         );
       }
 
-      const assigneeIsMember =
+      const isMember =
         await squadMemberRepository.isMember(
-          finalSquadId,
+          ticket.squadId,
           ticketData.assignedTo
         );
 
-      if (!assigneeIsMember) {
+      if (!isMember) {
         throw new AppError(
           "Assigned user is not a member of this squad",
           400
@@ -564,7 +572,7 @@ class TicketService {
     }
 
     // ------------------------------------------
-    // CLEAN UPDATE DATA
+    // BUILD UPDATE DATA
     // ------------------------------------------
 
     const updateData = {
@@ -572,12 +580,33 @@ class TicketService {
       updatedAt: new Date(),
     };
 
+    // Never allow creator modification
+    delete updateData.createdBy;
+
+    // Never allow squad modification
+    delete updateData.squadId;
+
+    // ------------------------------------------
+    // CLEAN TITLE
+    // ------------------------------------------
+
     if (
       updateData.title !== undefined
     ) {
+      if (!updateData.title?.trim()) {
+        throw new AppError(
+          "Ticket title cannot be empty",
+          400
+        );
+      }
+
       updateData.title =
         updateData.title.trim();
     }
+
+    // ------------------------------------------
+    // CLEAN DESCRIPTION
+    // ------------------------------------------
 
     if (
       updateData.description !== undefined
@@ -587,9 +616,19 @@ class TicketService {
         null;
     }
 
-    // Never allow these fields to be changed
-    // through a normal ticket update.
-    delete updateData.createdBy;
+    // ------------------------------------------
+    // ALLOW NULL ASSIGNEE
+    // ------------------------------------------
+
+    if (
+      updateData.assignedTo === null
+    ) {
+      updateData.assignedTo = null;
+    }
+
+    // ------------------------------------------
+    // UPDATE
+    // ------------------------------------------
 
     return await ticketRepository.update(
       id,

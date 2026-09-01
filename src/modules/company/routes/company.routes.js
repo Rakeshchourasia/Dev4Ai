@@ -19,10 +19,7 @@ import {
 
 const router = Router();
 
-// ==========================================
-// CREATE COMPANY
-// ==========================================
-
+// CREATE
 router.post(
   "/",
   authenticate,
@@ -31,10 +28,7 @@ router.post(
   companyController.create
 );
 
-// ==========================================
-// GET ALL COMPANIES
-// ==========================================
-
+// GET ALL
 router.get(
   "/",
   authenticate,
@@ -42,20 +36,14 @@ router.get(
   companyController.getAll
 );
 
-// ==========================================
-// GET COMPANY BY ID
-// ==========================================
-
+// GET BY ID
 router.get(
   "/:id",
   authenticate,
   companyController.getById
 );
 
-// ==========================================
-// UPDATE COMPANY
-// ==========================================
-
+// UPDATE
 router.patch(
   "/:id",
   authenticate,
@@ -64,10 +52,7 @@ router.patch(
   companyController.update
 );
 
-// ==========================================
-// DELETE COMPANY
-// ==========================================
-
+// DELETE
 router.delete(
   "/:id",
   authenticate,

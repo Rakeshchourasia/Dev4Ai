@@ -1,5 +1,7 @@
 import sprintRepository from "../repositories/sprint.repository.js";
+
 import squadRepository from "../../squads/repositories/squad.repository.js";
+
 import squadMemberRepository from "../../squads/repositories/squadMember.repository.js";
 
 import AppError from "../../../shared/errors/AppError.js";
@@ -15,18 +17,15 @@ const VALID_STATUSES = [
   "COMPLETED",
 ];
 
-const ALLOWED_TRANSITIONS = {
-  PLANNED: ["ACTIVE"],
-  ACTIVE: ["COMPLETED"],
-  COMPLETED: [],
-};
-
 class SprintService {
   // ==========================================
-  // ENSURE USER HAS ACCESS TO SQUAD
+  // ENSURE SQUAD ACCESS
   // ==========================================
 
-  async ensureSquadAccess(squadId, user) {
+  async ensureSquadAccess(
+    squadId,
+    user
+  ) {
     if (!user?.id) {
       throw new AppError(
         "Authentication required",
@@ -34,8 +33,9 @@ class SprintService {
       );
     }
 
-    // ADMIN has global access
-    if (user.role === "ADMIN") {
+    if (
+      user.role === "ADMIN"
+    ) {
       return;
     }
 
@@ -54,20 +54,19 @@ class SprintService {
   }
 
   // ==========================================
-  // CREATE SPRINT
+  // CREATE
   // ==========================================
 
-  async create(sprintData) {
+  async create(
+    sprintData,
+    user
+  ) {
     const {
       squadId,
       name,
       startDate,
       endDate,
     } = sprintData;
-
-    // ------------------------------------------
-    // REQUIRED FIELDS
-    // ------------------------------------------
 
     if (!squadId) {
       throw new AppError(
@@ -83,16 +82,15 @@ class SprintService {
       );
     }
 
-    if (!startDate || !endDate) {
+    if (
+      !startDate ||
+      !endDate
+    ) {
       throw new AppError(
         "Start date and end date are required",
         400
       );
     }
-
-    // ------------------------------------------
-    // CHECK SQUAD
-    // ------------------------------------------
 
     const squad =
       await squadRepository.findById(
@@ -106,20 +104,24 @@ class SprintService {
       );
     }
 
-    // ------------------------------------------
-    // CONVERT DATES
-    // ------------------------------------------
+    await this.ensureSquadAccess(
+      squadId,
+      user
+    );
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start =
+      new Date(startDate);
 
-    // ------------------------------------------
-    // VALIDATE DATES
-    // ------------------------------------------
+    const end =
+      new Date(endDate);
 
     if (
-      Number.isNaN(start.getTime()) ||
-      Number.isNaN(end.getTime())
+      Number.isNaN(
+        start.getTime()
+      ) ||
+      Number.isNaN(
+        end.getTime()
+      )
     ) {
       throw new AppError(
         "Invalid sprint dates",
@@ -133,10 +135,6 @@ class SprintService {
         400
       );
     }
-
-    // ------------------------------------------
-    // CHECK OVERLAPPING SPRINT
-    // ------------------------------------------
 
     const overlappingSprint =
       await sprintRepository.findOverlappingSprint(
@@ -152,20 +150,17 @@ class SprintService {
       );
     }
 
-    // ------------------------------------------
-    // CREATE SPRINT
-    // ------------------------------------------
-
     return await sprintRepository.create({
       squadId,
       name: name.trim(),
       startDate: start,
       endDate: end,
+      status: "PLANNED",
     });
   }
 
   // ==========================================
-  // GET ALL SPRINTS BY SQUAD
+  // GET ALL BY SQUAD
   // ==========================================
 
   async getAllBySquad(
@@ -173,10 +168,6 @@ class SprintService {
     query = {},
     user
   ) {
-    // ------------------------------------------
-    // CHECK SQUAD
-    // ------------------------------------------
-
     const squad =
       await squadRepository.findById(
         squadId
@@ -189,18 +180,10 @@ class SprintService {
       );
     }
 
-    // ------------------------------------------
-    // CHECK ACCESS
-    // ------------------------------------------
-
     await this.ensureSquadAccess(
       squadId,
       user
     );
-
-    // ------------------------------------------
-    // PAGINATION
-    // ------------------------------------------
 
     const {
       page,
@@ -208,17 +191,9 @@ class SprintService {
       offset,
     } = getPagination(query);
 
-    // ------------------------------------------
-    // FILTERS
-    // ------------------------------------------
-
     const filters = {
       status: query.status,
     };
-
-    // ------------------------------------------
-    // FETCH SPRINTS
-    // ------------------------------------------
 
     const sprints =
       await sprintRepository.findAllBySquadId(
@@ -226,15 +201,11 @@ class SprintService {
         {
           limit,
           offset,
-          ...filters,
+          status: filters.status,
           sortBy: query.sortBy,
           sortOrder: query.sortOrder,
         }
       );
-
-    // ------------------------------------------
-    // TOTAL
-    // ------------------------------------------
 
     const total =
       await sprintRepository.countBySquadId(
@@ -245,21 +216,27 @@ class SprintService {
     return {
       sprints,
 
-      pagination: buildPagination(
-        page,
-        limit,
-        total
-      ),
+      pagination:
+        buildPagination(
+          page,
+          limit,
+          total
+        ),
     };
   }
 
   // ==========================================
-  // GET SPRINT BY ID
+  // GET BY ID
   // ==========================================
 
-  async getById(id, user) {
+  async getById(
+    id,
+    user
+  ) {
     const sprint =
-      await sprintRepository.findById(id);
+      await sprintRepository.findById(
+        id
+      );
 
     if (!sprint) {
       throw new AppError(
@@ -267,10 +244,6 @@ class SprintService {
         404
       );
     }
-
-    // ------------------------------------------
-    // CHECK ACCESS
-    // ------------------------------------------
 
     await this.ensureSquadAccess(
       sprint.squadId,
@@ -281,12 +254,18 @@ class SprintService {
   }
 
   // ==========================================
-  // UPDATE SPRINT
+  // UPDATE
   // ==========================================
 
-  async update(id, sprintData) {
+  async update(
+    id,
+    sprintData,
+    user
+  ) {
     const sprint =
-      await sprintRepository.findById(id);
+      await sprintRepository.findById(
+        id
+      );
 
     if (!sprint) {
       throw new AppError(
@@ -295,8 +274,13 @@ class SprintService {
       );
     }
 
+    await this.ensureSquadAccess(
+      sprint.squadId,
+      user
+    );
+
     // ------------------------------------------
-    // PREVENT UPDATING COMPLETED SPRINT
+    // COMPLETED SPRINT
     // ------------------------------------------
 
     if (
@@ -309,10 +293,18 @@ class SprintService {
     }
 
     // ------------------------------------------
-    // VALIDATE SQUAD IF CHANGED
+    // SQUAD CHANGE
     // ------------------------------------------
 
-    if (sprintData.squadId) {
+    const squadId =
+      sprintData.squadId ||
+      sprint.squadId;
+
+    if (
+      sprintData.squadId &&
+      sprintData.squadId !==
+        sprint.squadId
+    ) {
       const squad =
         await squadRepository.findById(
           sprintData.squadId
@@ -324,31 +316,42 @@ class SprintService {
           404
         );
       }
+
+      await this.ensureSquadAccess(
+        sprintData.squadId,
+        user
+      );
     }
 
     // ------------------------------------------
-    // DETERMINE FINAL VALUES
+    // DATES
     // ------------------------------------------
 
-    const squadId =
-      sprintData.squadId ||
-      sprint.squadId;
+    const start =
+      sprintData.startDate
+        ? new Date(
+            sprintData.startDate
+          )
+        : new Date(
+            sprint.startDate
+          );
 
-    const start = sprintData.startDate
-      ? new Date(sprintData.startDate)
-      : new Date(sprint.startDate);
-
-    const end = sprintData.endDate
-      ? new Date(sprintData.endDate)
-      : new Date(sprint.endDate);
-
-    // ------------------------------------------
-    // VALIDATE DATES
-    // ------------------------------------------
+    const end =
+      sprintData.endDate
+        ? new Date(
+            sprintData.endDate
+          )
+        : new Date(
+            sprint.endDate
+          );
 
     if (
-      Number.isNaN(start.getTime()) ||
-      Number.isNaN(end.getTime())
+      Number.isNaN(
+        start.getTime()
+      ) ||
+      Number.isNaN(
+        end.getTime()
+      )
     ) {
       throw new AppError(
         "Invalid sprint dates",
@@ -364,7 +367,7 @@ class SprintService {
     }
 
     // ------------------------------------------
-    // CHECK OVERLAP
+    // OVERLAP
     // ------------------------------------------
 
     const overlappingSprint =
@@ -383,7 +386,7 @@ class SprintService {
     }
 
     // ------------------------------------------
-    // PREVENT MANUAL STATUS CHANGE HERE
+    // UPDATE DATA
     // ------------------------------------------
 
     const updateData = {
@@ -394,23 +397,14 @@ class SprintService {
       updatedAt: new Date(),
     };
 
-    delete updateData.status;
-
-    // ------------------------------------------
-    // CLEAN NAME
-    // ------------------------------------------
-
-    if (updateData.name !== undefined) {
-      if (!updateData.name?.trim()) {
-        throw new AppError(
-          "Sprint name cannot be empty",
-          400
-        );
-      }
-
+    if (updateData.name) {
       updateData.name =
         updateData.name.trim();
     }
+
+    // Status should be changed only
+    // through updateStatus()
+    delete updateData.status;
 
     return await sprintRepository.update(
       id,
@@ -419,118 +413,58 @@ class SprintService {
   }
 
   // ==========================================
-  // DELETE SPRINT
+  // UPDATE STATUS
   // ==========================================
 
-  async delete(id) {
-    const sprint =
-      await sprintRepository.findById(id);
-
-    if (!sprint) {
-      throw new AppError(
-        "Sprint not found",
-        404
-      );
-    }
-
-    // ------------------------------------------
-    // PREVENT DELETING ACTIVE SPRINT
-    // ------------------------------------------
-
-    if (sprint.status === "ACTIVE") {
-      throw new AppError(
-        "Active sprint cannot be deleted",
-        400
-      );
-    }
-
-    // ------------------------------------------
-    // DELETE
-    // ------------------------------------------
-
-    await sprintRepository.delete(id);
-
-    return {
-      message:
-        "Sprint deleted successfully",
-    };
-  }
-
-  // ==========================================
-  // UPDATE SPRINT STATUS
-  // ==========================================
-
-  async updateStatus(id, status) {
-    const sprint =
-      await sprintRepository.findById(id);
-
-    if (!sprint) {
-      throw new AppError(
-        "Sprint not found",
-        404
-      );
-    }
-
-    // ------------------------------------------
-    // VALIDATE TARGET STATUS
-    // ------------------------------------------
-
-    if (!VALID_STATUSES.includes(status)) {
+  async updateStatus(
+    id,
+    status,
+    user
+  ) {
+    if (
+      !VALID_STATUSES.includes(
+        status
+      )
+    ) {
       throw new AppError(
         "Invalid sprint status",
         400
       );
     }
 
-    // ------------------------------------------
-    // VALIDATE CURRENT STATUS
-    // ------------------------------------------
+    const sprint =
+      await sprintRepository.findById(
+        id
+      );
 
-    const allowedTransitions =
-      ALLOWED_TRANSITIONS[sprint.status];
-
-    if (!allowedTransitions) {
+    if (!sprint) {
       throw new AppError(
-        `Invalid current sprint status: ${sprint.status}`,
-        400
+        "Sprint not found",
+        404
       );
     }
 
-    // ------------------------------------------
-    // VALIDATE TRANSITION
-    // ------------------------------------------
+    await this.ensureSquadAccess(
+      sprint.squadId,
+      user
+    );
+
+    const allowedTransitions = {
+      PLANNED: ["ACTIVE"],
+      ACTIVE: ["COMPLETED"],
+      COMPLETED: [],
+    };
 
     if (
-      !allowedTransitions.includes(status)
+      !allowedTransitions[
+        sprint.status
+      ]?.includes(status)
     ) {
       throw new AppError(
         `Cannot change sprint status from ${sprint.status} to ${status}`,
         400
       );
     }
-
-    // ------------------------------------------
-    // ONLY ONE ACTIVE SPRINT PER SQUAD
-    // ------------------------------------------
-
-    if (status === "ACTIVE") {
-      const activeSprint =
-        await sprintRepository.findActiveSprintBySquadId(
-          sprint.squadId,
-          sprint.id
-        );
-
-      if (activeSprint) {
-        throw new AppError(
-          "Another sprint is already active for this squad",
-          409
-        );
-      }
-    }
-
-    // ------------------------------------------
-    // UPDATE STATUS
-    // ------------------------------------------
 
     return await sprintRepository.update(
       id,
@@ -539,6 +473,50 @@ class SprintService {
         updatedAt: new Date(),
       }
     );
+  }
+
+  // ==========================================
+  // DELETE
+  // ==========================================
+
+  async delete(
+    id,
+    user
+  ) {
+    const sprint =
+      await sprintRepository.findById(
+        id
+      );
+
+    if (!sprint) {
+      throw new AppError(
+        "Sprint not found",
+        404
+      );
+    }
+
+    await this.ensureSquadAccess(
+      sprint.squadId,
+      user
+    );
+
+    if (
+      sprint.status === "COMPLETED"
+    ) {
+      throw new AppError(
+        "Completed sprint cannot be deleted",
+        400
+      );
+    }
+
+    await sprintRepository.delete(
+      id
+    );
+
+    return {
+      message:
+        "Sprint deleted successfully",
+    };
   }
 }
 

@@ -1,32 +1,26 @@
 import { z } from "zod";
 
-const status = [
-  "TODO",
-  "IN_PROGRESS",
-  "DONE",
-];
-
-const priority = [
-  "LOW",
-  "MEDIUM",
-  "HIGH",
-  "URGENT",
-];
+// ==========================================
+// CREATE TICKET
+// ==========================================
 
 export const createTicketSchema = z.object({
-  squadId: z.string().uuid({
-    message: "Invalid squad ID",
-  }),
+  squadId: z
+    .string()
+    .uuid("Invalid squad ID"),
 
-  sprintId: z.string().uuid({
-    message: "Invalid sprint ID",
-  }),
+  sprintId: z
+    .string()
+    .uuid("Invalid sprint ID"),
 
   title: z
     .string()
     .trim()
     .min(1, "Ticket title is required")
-    .max(255, "Ticket title must not exceed 255 characters"),
+    .max(
+      255,
+      "Ticket title must not exceed 255 characters"
+    ),
 
   description: z
     .string()
@@ -49,34 +43,29 @@ export const createTicketSchema = z.object({
 
   assignedTo: z
     .string()
-    .uuid({
-      message: "Invalid assigned user ID",
-    })
+    .uuid("Invalid assigned user ID")
     .optional()
     .nullable(),
 });
 
+// ==========================================
+// UPDATE TICKET
+// ==========================================
 
 export const updateTicketSchema = z
   .object({
-    squadId: z
-      .string()
-      .uuid({
-        message: "Invalid squad ID",
-      })
-      .optional(),
-
     sprintId: z
       .string()
-      .uuid({
-        message: "Invalid sprint ID",
-      })
+      .uuid("Invalid sprint ID")
       .optional(),
 
     title: z
       .string()
       .trim()
-      .min(1, "Ticket title cannot be empty")
+      .min(
+        1,
+        "Ticket title cannot be empty"
+      )
       .max(
         255,
         "Ticket title must not exceed 255 characters"
@@ -112,14 +101,13 @@ export const updateTicketSchema = z
 
     assignedTo: z
       .string()
-      .uuid({
-        message: "Invalid assigned user ID",
-      })
+      .uuid("Invalid assigned user ID")
       .optional()
       .nullable(),
   })
   .refine(
-    (data) => Object.keys(data).length > 0,
+    (data) =>
+      Object.keys(data).length > 0,
     {
       message:
         "At least one field is required for update",

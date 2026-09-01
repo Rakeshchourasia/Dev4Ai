@@ -18,10 +18,7 @@ import {
 
 const router = Router();
 
-// ==========================================
-// CREATE TICKET
-// ==========================================
-
+// CREATE
 router.post(
   "/",
   authenticate,
@@ -29,21 +26,7 @@ router.post(
   ticketController.create
 );
 
-// ==========================================
-// GET TICKETS BY SPRINT
-// ==========================================
-
-router.get(
-  "/sprints/:sprintId",
-  authenticate,
-  validateQuery(ticketQuerySchema),
-  ticketController.getAllBySprint
-);
-
-// ==========================================
-// GET TICKETS BY SQUAD
-// ==========================================
-
+// BY SQUAD
 router.get(
   "/squads/:squadId",
   authenticate,
@@ -51,20 +34,22 @@ router.get(
   ticketController.getAllBySquad
 );
 
-// ==========================================
-// GET TICKET BY ID
-// ==========================================
+// BY SPRINT
+router.get(
+  "/sprints/:sprintId",
+  authenticate,
+  validateQuery(ticketQuerySchema),
+  ticketController.getAllBySprint
+);
 
+// BY ID
 router.get(
   "/:id",
   authenticate,
   ticketController.getById
 );
 
-// ==========================================
-// UPDATE TICKET
-// ==========================================
-
+// UPDATE
 router.patch(
   "/:id",
   authenticate,
@@ -72,10 +57,7 @@ router.patch(
   ticketController.update
 );
 
-// ==========================================
-// DELETE TICKET
-// ==========================================
-
+// DELETE
 router.delete(
   "/:id",
   authenticate,

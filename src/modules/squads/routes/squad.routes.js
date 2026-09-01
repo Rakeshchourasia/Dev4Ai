@@ -4,6 +4,7 @@ import squadController from "../controllers/squad.controller.js";
 
 import authenticate from "../../../shared/middlewares/auth.middleware.js";
 import authorize from "../../../shared/middlewares/authorize.js";
+import squadAccess from "../../../shared/middlewares/squadAccess.middleware.js";
 
 import { validate } from "../../../shared/middlewares/validate.js";
 import { validateQuery } from "../../../shared/middlewares/validateQuery.js";
@@ -19,10 +20,7 @@ import {
 
 const router = Router();
 
-// ==========================================
 // CREATE SQUAD
-// ==========================================
-
 router.post(
   "/",
   authenticate,
@@ -31,10 +29,7 @@ router.post(
   squadController.create
 );
 
-// ==========================================
 // GET SQUADS BY COMPANY
-// ==========================================
-
 router.get(
   "/companies/:companyId",
   authenticate,
@@ -42,20 +37,15 @@ router.get(
   squadController.getAllByCompany
 );
 
-// ==========================================
-// GET SQUAD BY ID
-// ==========================================
-
+// GET SQUAD
 router.get(
   "/:id",
   authenticate,
+  squadAccess("id"),
   squadController.getById
 );
 
-// ==========================================
-// UPDATE SQUAD
-// ==========================================
-
+// UPDATE
 router.patch(
   "/:id",
   authenticate,
@@ -64,10 +54,7 @@ router.patch(
   squadController.update
 );
 
-// ==========================================
-// DELETE SQUAD
-// ==========================================
-
+// DELETE
 router.delete(
   "/:id",
   authenticate,

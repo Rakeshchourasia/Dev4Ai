@@ -5,14 +5,14 @@ export const sprintQuerySchema = z.object({
     .number()
     .int()
     .min(1)
-    .default(1),
+    .optional(),
 
   limit: z.coerce
     .number()
     .int()
     .min(1)
     .max(100)
-    .default(10),
+    .optional(),
 
   status: z
     .enum([
@@ -27,12 +27,16 @@ export const sprintQuerySchema = z.object({
       "name",
       "startDate",
       "endDate",
+      "status",
       "createdAt",
       "updatedAt",
     ])
-    .default("startDate"),
+    .optional(),
 
   sortOrder: z
-    .enum(["asc", "desc"])
-    .default("asc"),
+    .enum([
+      "asc",
+      "desc",
+    ])
+    .optional(),
 });

@@ -4,11 +4,25 @@ const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
       return next(
-        new AppError("Authentication required", 401)
+        new AppError(
+          "Authentication required",
+          401
+        )
       );
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!req.user.role) {
+      return next(
+        new AppError(
+          "User role not found",
+          403
+        )
+      );
+    }
+
+    if (
+      !allowedRoles.includes(req.user.role)
+    ) {
       return next(
         new AppError(
           "You are not authorized to perform this action",
@@ -21,4 +35,4 @@ const authorize = (...allowedRoles) => {
   };
 };
 
-export default authorize; 
+export default authorize;
