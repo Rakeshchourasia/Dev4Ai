@@ -64,6 +64,20 @@
       "when": 1786949579314,
       "tag": "0008_milky_lockheed",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788330041660,
+      "tag": "0009_lush_flatman",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788331940436,
+      "tag": "0010_goofy_korath",
+      "breakpoints": true
     }
   ]
 }

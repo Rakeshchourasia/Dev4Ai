@@ -3,18 +3,16 @@ import squadMemberService from "../services/squadMember.service.js";
 class SquadMemberController {
   async addMember(req, res, next) {
     try {
-      const { squadId } = req.params;
-      const { userId } = req.body;
-
       const member =
         await squadMemberService.addMember(
-          squadId,
-          userId
+          req.params.squadId,
+          req.body.userId
         );
 
       return res.status(201).json({
         success: true,
-        message: "Member added successfully",
+        message:
+          "Member added successfully",
         data: member,
       });
     } catch (error) {
@@ -24,16 +22,15 @@ class SquadMemberController {
 
   async getMembers(req, res, next) {
     try {
-      const { squadId } = req.params;
-
       const members =
         await squadMemberService.getMembers(
-          squadId
+          req.params.squadId
         );
 
       return res.status(200).json({
         success: true,
-        message: "Squad members fetched successfully",
+        message:
+          "Squad members fetched successfully",
         data: members,
       });
     } catch (error) {
@@ -41,9 +38,16 @@ class SquadMemberController {
     }
   }
 
-  async checkMembership(req, res, next) {
+  async checkMembership(
+    req,
+    res,
+    next
+  ) {
     try {
-      const { squadId, userId } = req.params;
+      const {
+        squadId,
+        userId,
+      } = req.params;
 
       const isMember =
         await squadMemberService.checkMembership(
@@ -53,7 +57,8 @@ class SquadMemberController {
 
       return res.status(200).json({
         success: true,
-        message: "Membership checked successfully",
+        message:
+          "Membership checked successfully",
         data: {
           squadId,
           userId,
@@ -65,9 +70,16 @@ class SquadMemberController {
     }
   }
 
-  async removeMember(req, res, next) {
+  async removeMember(
+    req,
+    res,
+    next
+  ) {
     try {
-      const { squadId, userId } = req.params;
+      const {
+        squadId,
+        userId,
+      } = req.params;
 
       const result =
         await squadMemberService.removeMember(
@@ -77,7 +89,7 @@ class SquadMemberController {
 
       return res.status(200).json({
         success: true,
-        message: result.message,
+        ...result,
       });
     } catch (error) {
       next(error);

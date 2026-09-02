@@ -16,6 +16,10 @@ import {
   ticketQuerySchema,
 } from "../../../validation/ticket-query.schema.js";
 
+import {
+  updateTicketStatusSchema,
+} from "../../../validation/ticket-status.schema.js";
+
 const router = Router();
 
 // CREATE
@@ -62,6 +66,13 @@ router.delete(
   "/:id",
   authenticate,
   ticketController.delete
+);
+
+router.patch(
+  "/:id/status",
+  authenticate,
+  validate(updateTicketStatusSchema),
+  ticketController.updateStatus
 );
 
 export default router;

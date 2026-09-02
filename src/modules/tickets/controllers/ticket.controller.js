@@ -2,7 +2,7 @@ import ticketService from "../services/ticket.service.js";
 
 class TicketController {
   // ==========================================
-  // CREATE
+  // CREATE TICKET
   // ==========================================
 
   async create(req, res, next) {
@@ -15,8 +15,7 @@ class TicketController {
 
       return res.status(201).json({
         success: true,
-        message:
-          "Ticket created successfully",
+        message: "Ticket created successfully",
         data: ticket,
       });
     } catch (error) {
@@ -25,7 +24,7 @@ class TicketController {
   }
 
   // ==========================================
-  // GET BY SPRINT
+  // GET TICKETS BY SPRINT
   // ==========================================
 
   async getAllBySprint(
@@ -34,20 +33,21 @@ class TicketController {
     next
   ) {
     try {
+      const { sprintId } =
+        req.params;
+
       const result =
         await ticketService.getAllBySprint(
-          req.params.sprintId,
+          sprintId,
           req.query,
           req.user
         );
 
       return res.status(200).json({
         success: true,
-        message:
-          "Tickets fetched successfully",
+        message: "Tickets fetched successfully",
         data: result.tickets,
-        pagination:
-          result.pagination,
+        pagination: result.pagination,
       });
     } catch (error) {
       next(error);
@@ -55,7 +55,7 @@ class TicketController {
   }
 
   // ==========================================
-  // GET BY SQUAD
+  // GET TICKETS BY SQUAD
   // ==========================================
 
   async getAllBySquad(
@@ -64,20 +64,21 @@ class TicketController {
     next
   ) {
     try {
+      const { squadId } =
+        req.params;
+
       const result =
         await ticketService.getAllBySquad(
-          req.params.squadId,
+          squadId,
           req.query,
           req.user
         );
 
       return res.status(200).json({
         success: true,
-        message:
-          "Tickets fetched successfully",
+        message: "Tickets fetched successfully",
         data: result.tickets,
-        pagination:
-          result.pagination,
+        pagination: result.pagination,
       });
     } catch (error) {
       next(error);
@@ -85,10 +86,14 @@ class TicketController {
   }
 
   // ==========================================
-  // GET BY ID
+  // GET TICKET BY ID
   // ==========================================
 
-  async getById(req, res, next) {
+  async getById(
+    req,
+    res,
+    next
+  ) {
     try {
       const ticket =
         await ticketService.getById(
@@ -98,8 +103,7 @@ class TicketController {
 
       return res.status(200).json({
         success: true,
-        message:
-          "Ticket fetched successfully",
+        message: "Ticket fetched successfully",
         data: ticket,
       });
     } catch (error) {
@@ -108,10 +112,14 @@ class TicketController {
   }
 
   // ==========================================
-  // UPDATE
+  // UPDATE TICKET
   // ==========================================
 
-  async update(req, res, next) {
+  async update(
+    req,
+    res,
+    next
+  ) {
     try {
       const ticket =
         await ticketService.update(
@@ -122,8 +130,7 @@ class TicketController {
 
       return res.status(200).json({
         success: true,
-        message:
-          "Ticket updated successfully",
+        message: "Ticket updated successfully",
         data: ticket,
       });
     } catch (error) {
@@ -132,10 +139,14 @@ class TicketController {
   }
 
   // ==========================================
-  // DELETE
+  // DELETE TICKET
   // ==========================================
 
-  async delete(req, res, next) {
+  async delete(
+    req,
+    res,
+    next
+  ) {
     try {
       const result =
         await ticketService.delete(
@@ -151,6 +162,28 @@ class TicketController {
       next(error);
     }
   }
+  async updateStatus(
+  req,
+  res,
+  next
+) {
+  try {
+    const ticket =
+      await ticketService.updateStatus(
+        req.params.id,
+        req.body.status,
+        req.user
+      );
+
+    return res.status(200).json({
+      success: true,
+      message: "Ticket status updated successfully",
+      data: ticket,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 }
 
 export default new TicketController();

@@ -3,6 +3,7 @@ import {
   uuid,
   timestamp,
   primaryKey,
+  index,
 } from "drizzle-orm/pg-core";
 
 import { squads } from "./squads.schema.js";
@@ -34,5 +35,8 @@ export const squadMembers = pgTable(
         table.userId,
       ],
     }),
+
+    userIdIdx: index("squad_members_user_id_idx")
+      .on(table.userId),
   })
 );

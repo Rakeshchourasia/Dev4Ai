@@ -4,6 +4,8 @@ import squadMemberController from "../controllers/squadMember.controller.js";
 
 import authenticate from "../../../shared/middlewares/auth.middleware.js";
 import authorize from "../../../shared/middlewares/authorize.js";
+import squadAccess from "../../../shared/middlewares/squadAccess.middleware.js";
+
 import { validate } from "../../../shared/middlewares/validate.js";
 
 import {
@@ -26,22 +28,26 @@ router.post(
 );
 
 // ==========================================
-// GET MEMBERS
+// GET ALL MEMBERS
+// ADMIN OR SQUAD MEMBER
 // ==========================================
 
 router.get(
   "/:squadId/members",
   authenticate,
+  squadAccess("squadId"),
   squadMemberController.getMembers
 );
 
 // ==========================================
 // CHECK MEMBERSHIP
+// ADMIN OR SQUAD MEMBER
 // ==========================================
 
 router.get(
   "/:squadId/members/:userId",
   authenticate,
+  squadAccess("squadId"),
   squadMemberController.checkMembership
 );
 

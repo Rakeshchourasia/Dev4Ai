@@ -12,6 +12,7 @@ import squadRoutes from "./modules/squads/routes/squad.routes.js";
 import sprintRoutes from "./modules/sprints/routes/sprint.routes.js";
 import ticketRoutes from "./modules/tickets/routes/ticket.routes.js";
 import squadMemberRoutes from "./modules/squads/routes/squadMember.routes.js";
+import activityRoutes from "./modules/activity/routes/activity.routes.js";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -40,6 +41,7 @@ app.use("/squads", squadRoutes);
 app.use("/sprints", sprintRoutes);
 app.use("/tickets", ticketRoutes);
 app.use("/squads", squadMemberRoutes);
+app.use("/activities", activityRoutes);
 
 app.use(errorHandler);
 
