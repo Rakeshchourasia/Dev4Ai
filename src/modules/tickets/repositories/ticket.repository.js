@@ -1,32 +1,107 @@
 import {
-  eq,
   and,
-  count,
-  asc,
+  eq,
   desc,
+  asc,
+  count,
 } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
-
-import {
-  tickets,
-} from "../../../db/schema/tickets.schema.js";
+import { tickets } from "../../../db/schema/tickets.schema.js";
 
 class TicketRepository {
   // ==========================================
-  // FIND BY ID
+  // FIND ALL BY SQUAD
   // ==========================================
 
-  async findById(id) {
-    const result = await db
+  async findAllBySquadId(
+    squadId,
+    {
+      limit,
+      offset,
+      status,
+      priority,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = {}
+  ) {
+    const conditions = [
+      eq(tickets.squadId, squadId),
+    ];
+
+    if (status) {
+      conditions.push(
+        eq(tickets.status, status)
+      );
+    }
+
+    if (priority) {
+      conditions.push(
+        eq(tickets.priority, priority)
+      );
+    }
+
+    const sortColumns = {
+      createdAt: tickets.createdAt,
+      updatedAt: tickets.updatedAt,
+      title: tickets.title,
+      priority: tickets.priority,
+      status: tickets.status,
+    };
+
+    const sortColumn =
+      sortColumns[sortBy] ||
+      tickets.createdAt;
+
+    const order =
+      sortOrder === "asc"
+        ? asc(sortColumn)
+        : desc(sortColumn);
+
+    return await db
       .select()
       .from(tickets)
-      .where(
-        eq(tickets.id, id)
-      )
-      .limit(1);
+      .where(and(...conditions))
+      .orderBy(order)
+      .limit(limit)
+      .offset(offset);
+  }
 
-    return result[0] || null;
+  // ==========================================
+  // COUNT BY SQUAD
+  // ==========================================
+
+  async countBySquadId(
+    squadId,
+    {
+      status,
+      priority,
+    } = {}
+  ) {
+    const conditions = [
+      eq(tickets.squadId, squadId),
+    ];
+
+    if (status) {
+      conditions.push(
+        eq(tickets.status, status)
+      );
+    }
+
+    if (priority) {
+      conditions.push(
+        eq(tickets.priority, priority)
+      );
+    }
+
+    const [result] = await db
+      .select({
+        count: count(),
+      })
+      .from(tickets)
+      .where(and(...conditions));
+
+    return Number(result.count);
   }
 
   // ==========================================
@@ -45,36 +120,27 @@ class TicketRepository {
     } = {}
   ) {
     const conditions = [
-      eq(
-        tickets.sprintId,
-        sprintId
-      ),
+      eq(tickets.sprintId, sprintId),
     ];
 
     if (status) {
       conditions.push(
-        eq(
-          tickets.status,
-          status
-        )
+        eq(tickets.status, status)
       );
     }
 
     if (priority) {
       conditions.push(
-        eq(
-          tickets.priority,
-          priority
-        )
+        eq(tickets.priority, priority)
       );
     }
 
     const sortColumns = {
+      createdAt: tickets.createdAt,
+      updatedAt: tickets.updatedAt,
       title: tickets.title,
       priority: tickets.priority,
       status: tickets.status,
-      createdAt: tickets.createdAt,
-      updatedAt: tickets.updatedAt,
     };
 
     const sortColumn =
@@ -86,24 +152,13 @@ class TicketRepository {
         ? asc(sortColumn)
         : desc(sortColumn);
 
-    let query = db
+    return await db
       .select()
       .from(tickets)
-      .where(
-        and(...conditions)
-      )
-      .orderBy(order);
-
-    if (
-      limit !== undefined &&
-      offset !== undefined
-    ) {
-      query = query
-        .limit(limit)
-        .offset(offset);
-    }
-
-    return await query;
+      .where(and(...conditions))
+      .orderBy(order)
+      .limit(limit)
+      .offset(offset);
   }
 
   // ==========================================
@@ -118,201 +173,70 @@ class TicketRepository {
     } = {}
   ) {
     const conditions = [
-      eq(
-        tickets.sprintId,
-        sprintId
-      ),
+      eq(tickets.sprintId, sprintId),
     ];
 
     if (status) {
       conditions.push(
-        eq(
-          tickets.status,
-          status
-        )
+        eq(tickets.status, status)
       );
     }
 
     if (priority) {
       conditions.push(
-        eq(
-          tickets.priority,
-          priority
-        )
+        eq(tickets.priority, priority)
       );
     }
 
-    const result = await db
+    const [result] = await db
       .select({
         count: count(),
       })
       .from(tickets)
-      .where(
-        and(...conditions)
-      );
+      .where(and(...conditions));
 
-    return Number(
-      result[0]?.count || 0
-    );
+    return Number(result.count);
   }
 
   // ==========================================
-  // FIND ALL BY SQUAD
+  // FIND BY ID
   // ==========================================
 
-  async findAllBySquadId(
-    squadId,
-    {
-      limit,
-      offset,
-      status,
-      priority,
-      sortBy = "createdAt",
-      sortOrder = "desc",
-    } = {}
-  ) {
-    const conditions = [
-      eq(
-        tickets.squadId,
-        squadId
-      ),
-    ];
-
-    if (status) {
-      conditions.push(
-        eq(
-          tickets.status,
-          status
-        )
-      );
-    }
-
-    if (priority) {
-      conditions.push(
-        eq(
-          tickets.priority,
-          priority
-        )
-      );
-    }
-
-    const sortColumns = {
-      title: tickets.title,
-      priority: tickets.priority,
-      status: tickets.status,
-      createdAt: tickets.createdAt,
-      updatedAt: tickets.updatedAt,
-    };
-
-    const sortColumn =
-      sortColumns[sortBy] ||
-      tickets.createdAt;
-
-    const order =
-      sortOrder === "asc"
-        ? asc(sortColumn)
-        : desc(sortColumn);
-
-    let query = db
+  async findById(id) {
+    const [ticket] = await db
       .select()
       .from(tickets)
-      .where(
-        and(...conditions)
-      )
-      .orderBy(order);
+      .where(eq(tickets.id, id))
+      .limit(1);
 
-    if (
-      limit !== undefined &&
-      offset !== undefined
-    ) {
-      query = query
-        .limit(limit)
-        .offset(offset);
-    }
-
-    return await query;
-  }
-
-  // ==========================================
-  // COUNT BY SQUAD
-  // ==========================================
-
-  async countBySquadId(
-    squadId,
-    {
-      status,
-      priority,
-    } = {}
-  ) {
-    const conditions = [
-      eq(
-        tickets.squadId,
-        squadId
-      ),
-    ];
-
-    if (status) {
-      conditions.push(
-        eq(
-          tickets.status,
-          status
-        )
-      );
-    }
-
-    if (priority) {
-      conditions.push(
-        eq(
-          tickets.priority,
-          priority
-        )
-      );
-    }
-
-    const result = await db
-      .select({
-        count: count(),
-      })
-      .from(tickets)
-      .where(
-        and(...conditions)
-      );
-
-    return Number(
-      result[0]?.count || 0
-    );
+    return ticket || null;
   }
 
   // ==========================================
   // CREATE
   // ==========================================
 
-  async create(ticketData) {
-    const result = await db
+  async create(data) {
+    const [ticket] = await db
       .insert(tickets)
-      .values(ticketData)
+      .values(data)
       .returning();
 
-    return result[0];
+    return ticket;
   }
 
   // ==========================================
   // UPDATE
   // ==========================================
 
-  async update(
-    id,
-    ticketData
-  ) {
-    const result = await db
+  async update(id, data) {
+    const [ticket] = await db
       .update(tickets)
-      .set(ticketData)
-      .where(
-        eq(tickets.id, id)
-      )
+      .set(data)
+      .where(eq(tickets.id, id))
       .returning();
 
-    return result[0] || null;
+    return ticket || null;
   }
 
   // ==========================================
@@ -320,14 +244,12 @@ class TicketRepository {
   // ==========================================
 
   async delete(id) {
-    const result = await db
+    const [ticket] = await db
       .delete(tickets)
-      .where(
-        eq(tickets.id, id)
-      )
+      .where(eq(tickets.id, id))
       .returning();
 
-    return result[0] || null;
+    return ticket || null;
   }
 }
 

@@ -1,19 +1,34 @@
-export const validate = (schema) => (req, res, next) => {
-  const result = schema.safeParse(req.body);
+import AppError from "../errors/AppError.js";
 
-  if (!result.success) {
-    const errors = result.error.issues.map(
-      (error) => error.message
+const validate = (schema) => {
+  return (req, res, next) => {
+    const result = schema.safeParse(
+      req.body
     );
 
-    return res.status(400).json({
-      success: false,
-      message: "Validation failed",
-      errors,
-    });
-  }
+    if (!result.success) {
+      const errors =
+        result.error.issues.map(
+          (issue) => ({
+            field: issue.path.join("."),
+            message: issue.message,
+          })
+        );
 
-  req.body = result.data;
+      return next(
+        new AppError(
+          "Validation failed",
+          400,
+          errors
+        )
+      );
+    }
 
-  next();
+    req.body = result.data;
+
+    next();
+  };
 };
+
+export { validate };
+export default validate;

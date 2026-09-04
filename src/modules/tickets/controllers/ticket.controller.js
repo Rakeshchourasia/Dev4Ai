@@ -1,27 +1,30 @@
 import ticketService from "../services/ticket.service.js";
-
+import {
+  successResponse,
+} from "../../../shared/utils/response.js";
 class TicketController {
   // ==========================================
   // CREATE TICKET
   // ==========================================
 
-  async create(req, res, next) {
-    try {
-      const ticket =
-        await ticketService.create(
-          req.body,
-          req.user
-        );
+async create(req, res, next) {
+  try {
+    const ticket =
+      await ticketService.create(
+        req.body,
+        req.user
+      );
 
-      return res.status(201).json({
-        success: true,
-        message: "Ticket created successfully",
-        data: ticket,
-      });
-    } catch (error) {
-      next(error);
-    }
+    return successResponse({
+      res,
+      statusCode: 201,
+      message: "Ticket created successfully",
+      data: ticket,
+    });
+  } catch (error) {
+    next(error);
   }
+}
 
   // ==========================================
   // GET TICKETS BY SPRINT
@@ -57,60 +60,47 @@ class TicketController {
   // ==========================================
   // GET TICKETS BY SQUAD
   // ==========================================
+async getAllBySquad(req, res, next) {
+  try {
+    const result =
+      await ticketService.getAllBySquad(
+        req.params.squadId,
+        req.query,
+        req.user
+      );
 
-  async getAllBySquad(
-    req,
-    res,
-    next
-  ) {
-    try {
-      const { squadId } =
-        req.params;
-
-      const result =
-        await ticketService.getAllBySquad(
-          squadId,
-          req.query,
-          req.user
-        );
-
-      return res.status(200).json({
-        success: true,
-        message: "Tickets fetched successfully",
-        data: result.tickets,
-        pagination: result.pagination,
-      });
-    } catch (error) {
-      next(error);
-    }
+    return successResponse({
+      res,
+      message: "Tickets fetched successfully",
+      data: result.tickets,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    next(error);
   }
+}
 
   // ==========================================
   // GET TICKET BY ID
   // ==========================================
 
-  async getById(
-    req,
-    res,
-    next
-  ) {
-    try {
-      const ticket =
-        await ticketService.getById(
-          req.params.id,
-          req.user
-        );
+ async getById(req, res, next) {
+  try {
+    const ticket =
+      await ticketService.getById(
+        req.params.id,
+        req.user
+      );
 
-      return res.status(200).json({
-        success: true,
-        message: "Ticket fetched successfully",
-        data: ticket,
-      });
-    } catch (error) {
-      next(error);
-    }
+    return successResponse({
+      res,
+      message: "Ticket fetched successfully",
+      data: ticket,
+    });
+  } catch (error) {
+    next(error);
   }
-
+}
   // ==========================================
   // UPDATE TICKET
   // ==========================================

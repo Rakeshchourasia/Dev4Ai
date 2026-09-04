@@ -273,178 +273,147 @@ class TicketService {
   // GET TICKETS BY SPRINT
   // ==========================================
 
-  async getAllBySprint(
-    sprintId,
-    query = {},
-    user
-  ) {
-    if (!user) {
-      throw new AppError(
-        "Authentication required",
-        401
-      );
-    }
+async getAllBySprint(
+  sprintId,
+  query = {},
+  user
+) {
+  if (!user) {
+    throw new AppError(
+      "Authentication required",
+      401
+    );
+  }
 
-    // ------------------------------------------
-    // CHECK SPRINT
-    // ------------------------------------------
-
-    const sprint =
-      await sprintRepository.findById(
-        sprintId
-      );
-
-    if (!sprint) {
-      throw new AppError(
-        "Sprint not found",
-        404
-      );
-    }
-
-    // ------------------------------------------
-    // CHECK SQUAD ACCESS
-    // ------------------------------------------
-
-    await this.ensureSquadAccess(
-      sprint.squadId,
-      user
+  const sprint =
+    await sprintRepository.findById(
+      sprintId
     );
 
-    // ------------------------------------------
-    // PAGINATION
-    // ------------------------------------------
+  if (!sprint) {
+    throw new AppError(
+      "Sprint not found",
+      404
+    );
+  }
 
-    const {
+  await this.ensureSquadAccess(
+    sprint.squadId,
+    user
+  );
+
+  const {
+    page,
+    limit,
+    offset,
+  } = getPagination(query);
+
+  const filters = {
+    status: query.status,
+    priority: query.priority,
+  };
+
+  const tickets =
+    await ticketRepository.findAllBySprintId(
+      sprintId,
+      {
+        limit,
+        offset,
+        status: filters.status,
+        priority: filters.priority,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+      }
+    );
+
+  const total =
+    await ticketRepository.countBySprintId(
+      sprintId,
+      filters
+    );
+
+  return {
+    tickets,
+    pagination: buildPagination(
       page,
       limit,
-      offset,
-    } = getPagination(query);
-
-    const filters = {
-      status: query.status,
-      priority: query.priority,
-    };
-
-    // ------------------------------------------
-    // FETCH
-    // ------------------------------------------
-
-    const tickets =
-      await ticketRepository.findAllBySprintId(
-        sprintId,
-        {
-          limit,
-          offset,
-          ...filters,
-          sortBy: query.sortBy,
-          sortOrder: query.sortOrder,
-        }
-      );
-
-    const total =
-      await ticketRepository.countBySprintId(
-        sprintId,
-        filters
-      );
-
-    return {
-      tickets,
-      pagination: buildPagination(
-        page,
-        limit,
-        total
-      ),
-    };
-  }
+      total
+    ),
+  };
+}
 
   // ==========================================
   // GET TICKETS BY SQUAD
   // ==========================================
 
-  async getAllBySquad(
-    squadId,
-    query = {},
-    user
-  ) {
-    if (!user) {
-      throw new AppError(
-        "Authentication required",
-        401
-      );
-    }
-
-    // ------------------------------------------
-    // CHECK SQUAD
-    // ------------------------------------------
-
-    const squad =
-      await squadRepository.findById(
-        squadId
-      );
-
-    if (!squad) {
-      throw new AppError(
-        "Squad not found",
-        404
-      );
-    }
-
-    // ------------------------------------------
-    // CHECK ACCESS
-    // ------------------------------------------
-
-    await this.ensureSquadAccess(
-      squadId,
-      user
+async getAllBySquad(
+  squadId,
+  query = {},
+  user
+) {
+  if (!user) {
+    throw new AppError(
+      "Authentication required",
+      401
     );
-
-    // ------------------------------------------
-    // PAGINATION
-    // ------------------------------------------
-
-    const {
-      page,
-      limit,
-      offset,
-    } = getPagination(query);
-
-    const filters = {
-      status: query.status,
-      priority: query.priority,
-    };
-
-    // ------------------------------------------
-    // FETCH
-    // ------------------------------------------
-
-    const tickets =
-      await ticketRepository.findAllBySquadId(
-        squadId,
-        {
-          limit,
-          offset,
-          ...filters,
-          sortBy: query.sortBy,
-          sortOrder: query.sortOrder,
-        }
-      );
-
-    const total =
-      await ticketRepository.countBySquadId(
-        squadId,
-        filters
-      );
-
-    return {
-      tickets,
-      pagination: buildPagination(
-        page,
-        limit,
-        total
-      ),
-    };
   }
 
+  const squad =
+    await squadRepository.findById(
+      squadId
+    );
+
+  if (!squad) {
+    throw new AppError(
+      "Squad not found",
+      404
+    );
+  }
+
+  await this.ensureSquadAccess(
+    squadId,
+    user
+  );
+
+  const {
+    page,
+    limit,
+    offset,
+  } = getPagination(query);
+
+  const filters = {
+    status: query.status,
+    priority: query.priority,
+  };
+
+  const tickets =
+    await ticketRepository.findAllBySquadId(
+      squadId,
+      {
+        limit,
+        offset,
+        status: filters.status,
+        priority: filters.priority,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+      }
+    );
+
+  const total =
+    await ticketRepository.countBySquadId(
+      squadId,
+      filters
+    );
+
+  return {
+    tickets,
+    pagination: buildPagination(
+      page,
+      limit,
+      total
+    ),
+  };
+}
   // ==========================================
   // GET TICKET BY ID
   // ==========================================

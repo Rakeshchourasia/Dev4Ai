@@ -3,6 +3,7 @@ import { Router } from "express";
 import ticketController from "../controllers/ticket.controller.js";
 
 import authenticate from "../../../shared/middlewares/auth.middleware.js";
+import squadAccess from "../../../shared/middlewares/squadAccess.middleware.js";
 
 import { validate } from "../../../shared/middlewares/validate.js";
 import { validateQuery } from "../../../shared/middlewares/validateQuery.js";
@@ -32,20 +33,19 @@ router.post(
 
 // BY SQUAD
 router.get(
-  "/squads/:squadId",
+  "/squad/:squadId",
   authenticate,
+  squadAccess("squadId"),
   validateQuery(ticketQuerySchema),
   ticketController.getAllBySquad
 );
-
 // BY SPRINT
 router.get(
-  "/sprints/:sprintId",
+  "/sprint/:sprintId",
   authenticate,
   validateQuery(ticketQuerySchema),
   ticketController.getAllBySprint
 );
-
 // BY ID
 router.get(
   "/:id",

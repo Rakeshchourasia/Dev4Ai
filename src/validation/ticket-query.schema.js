@@ -5,14 +5,14 @@ export const ticketQuerySchema = z.object({
     .number()
     .int()
     .min(1)
-    .optional(),
+    .default(1),
 
   limit: z.coerce
     .number()
     .int()
     .min(1)
     .max(100)
-    .optional(),
+    .default(10),
 
   status: z
     .enum([
@@ -33,18 +33,18 @@ export const ticketQuerySchema = z.object({
 
   sortBy: z
     .enum([
+      "createdAt",
+      "updatedAt",
       "title",
       "priority",
       "status",
-      "createdAt",
-      "updatedAt",
     ])
-    .optional(),
+    .default("createdAt"),
 
   sortOrder: z
     .enum([
       "asc",
       "desc",
     ])
-    .optional(),
+    .default("desc"),
 });
