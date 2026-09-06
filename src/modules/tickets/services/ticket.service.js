@@ -1,8 +1,11 @@
+import { db } from "../../../db/index.js";
+
 import ticketRepository from "../repositories/ticket.repository.js";
 import squadRepository from "../../squads/repositories/squad.repository.js";
 import sprintRepository from "../../sprints/repositories/sprint.repository.js";
 import authRepository from "../../auth/repositories/auth.repository.js";
 import squadMemberRepository from "../../squads/repositories/squadMember.repository.js";
+import activityService from "../../activity/services/activity.service.js";
 
 import AppError from "../../../shared/errors/AppError.js";
 
@@ -10,14 +13,6 @@ import {
   getPagination,
   buildPagination,
 } from "../../../shared/utils/pagination.js";
-
-import activityService from "../../activity/services/activity.service.js";
-
-const VALID_STATUSES = [
-  "TODO",
-  "IN_PROGRESS",
-  "DONE",
-];
 
 const VALID_PRIORITIES = [
   "LOW",
@@ -28,27 +23,24 @@ const VALID_PRIORITIES = [
 
 class TicketService {
   // ==========================================
-  // COMMON ACCESS CHECK
+  // SQUAD ACCESS
   // ==========================================
 
-  async ensureSquadAccess(squadId, user) {
-    if (!user) {
+  async ensureSquadAccess(
+    squadId,
+    user
+  ) {
+    if (!user?.id) {
       throw new AppError(
         "Authentication required",
         401
       );
     }
 
-    // ADMIN has global access
-    if (user.role === "ADMIN") {
+    if (
+      user.role === "ADMIN"
+    ) {
       return;
-    }
-
-    if (!user.id) {
-      throw new AppError(
-        "Invalid authenticated user",
-        401
-      );
     }
 
     const isMember =
@@ -66,14 +58,13 @@ class TicketService {
   }
 
   // ==========================================
-  // CHECK ASSIGNEE
+  // ASSIGNEE VALIDATION
   // ==========================================
 
   async ensureAssigneeIsSquadMember(
     squadId,
     assignedTo
   ) {
-    // null/undefined means unassigned
     if (!assignedTo) {
       return;
     }
@@ -105,11 +96,14 @@ class TicketService {
   }
 
   // ==========================================
-  // CREATE TICKET
+  // CREATE
   // ==========================================
 
-  async create(ticketData, user) {
-    if (!user) {
+  async create(
+    ticketData,
+    user
+  ) {
+    if (!user?.id) {
       throw new AppError(
         "Authentication required",
         401
@@ -125,10 +119,6 @@ class TicketService {
       assignedTo,
     } = ticketData;
 
-    // ------------------------------------------
-    // REQUIRED FIELDS
-    // ------------------------------------------
-
     if (!squadId) {
       throw new AppError(
         "Squad ID is required",
@@ -143,25 +133,17 @@ class TicketService {
       );
     }
 
-    if (!title || !title.trim()) {
+    if (!title?.trim()) {
       throw new AppError(
         "Ticket title is required",
         400
       );
     }
 
-    // ------------------------------------------
-    // CHECK SQUAD ACCESS
-    // ------------------------------------------
-
     await this.ensureSquadAccess(
       squadId,
       user
     );
-
-    // ------------------------------------------
-    // CHECK SQUAD
-    // ------------------------------------------
 
     const squad =
       await squadRepository.findById(
@@ -175,9 +157,138 @@ class TicketService {
       );
     }
 
-    // ------------------------------------------
-    // CHECK SPRINT
-    // ------------------------------------------
+    const sprint =
+      await sprintRepository.findById(
+        sprintId
+      );
+
+    if (!sprint) {
+      throw new AppError(
+        "Sprint not found",
+        404
+      );
+    }
+
+    if (
+      sprint.squadId !== squadId
+    ) {
+      throw new AppError(
+        "Sprint does not belong to this squad",
+        400
+      );
+    }
+
+    if (
+      sprint.status ===
+      "COMPLETED"
+    ) {
+      throw new AppError(
+        "Cannot create a ticket in a completed sprint",
+        400
+      );
+    }
+
+    if (
+      priority &&
+      !VALID_PRIORITIES.includes(
+        priority
+      )
+    ) {
+      throw new AppError(
+        "Invalid ticket priority",
+        400
+      );
+    }
+
+    await this.ensureAssigneeIsSquadMember(
+      squadId,
+      assignedTo
+    );
+
+    // ==========================================
+    // TRANSACTION
+    // Ticket + activity must both succeed
+    // ==========================================
+
+    return await db.transaction(
+      async (tx) => {
+        const ticket =
+          await ticketRepository.create(
+            {
+              squadId,
+              sprintId,
+              title: title.trim(),
+
+              description:
+                description
+                  ? description.trim()
+                  : null,
+
+              status: "TODO",
+
+              priority:
+                priority ||
+                "MEDIUM",
+
+              createdBy:
+                user.id,
+
+              assignedTo:
+                assignedTo ||
+                null,
+            },
+            tx
+          );
+
+        await activityService.log(
+          {
+            userId:
+              user.id,
+
+            action:
+              "TICKET_CREATED",
+
+            entityType:
+              "TICKET",
+
+            entityId:
+              ticket.id,
+
+            ticketId:
+              ticket.id,
+
+            squadId:
+              ticket.squadId,
+
+            sprintId:
+              ticket.sprintId,
+
+            description:
+              `Ticket "${ticket.title}" was created`,
+          },
+          tx
+        );
+
+        return ticket;
+      }
+    );
+  }
+
+  // ==========================================
+  // GET BY SPRINT
+  // ==========================================
+
+  async getAllBySprint(
+    sprintId,
+    query = {},
+    user
+  ) {
+    if (!user?.id) {
+      throw new AppError(
+        "Authentication required",
+        401
+      );
+    }
 
     const sprint =
       await sprintRepository.findById(
@@ -191,235 +302,159 @@ class TicketService {
       );
     }
 
-    // ------------------------------------------
-    // SPRINT MUST BELONG TO SQUAD
-    // ------------------------------------------
-
-    if (sprint.squadId !== squadId) {
-      throw new AppError(
-        "Sprint does not belong to this squad",
-        400
-      );
-    }
-
-    // ------------------------------------------
-    // COMPLETED SPRINT PROTECTION
-    // ------------------------------------------
-
-    if (sprint.status === "COMPLETED") {
-      throw new AppError(
-        "Cannot create a ticket in a completed sprint",
-        400
-      );
-    }
-
-    // ------------------------------------------
-    // VALIDATE PRIORITY
-    // ------------------------------------------
-
-    if (
-      priority &&
-      !VALID_PRIORITIES.includes(priority)
-    ) {
-      throw new AppError(
-        "Invalid ticket priority",
-        400
-      );
-    }
-
-    // ------------------------------------------
-    // VALIDATE ASSIGNEE
-    // ------------------------------------------
-
-    await this.ensureAssigneeIsSquadMember(
-      squadId,
-      assignedTo
+    await this.ensureSquadAccess(
+      sprint.squadId,
+      user
     );
 
-    // ------------------------------------------
-    // CREATE TICKET
-    // createdBy ALWAYS comes from JWT
-    // ------------------------------------------
+    const {
+      page,
+      limit,
+      offset,
+    } = getPagination(query);
 
-    const ticket =
-      await ticketRepository.create({
-        squadId,
+    const filters = {
+      status:
+        query.status,
+
+      priority:
+        query.priority,
+    };
+
+    const tickets =
+      await ticketRepository.findAllBySprintId(
         sprintId,
-        title: title.trim(),
-        description: description
-          ? description.trim()
-          : null,
-        status: "TODO",
-        priority: priority || "MEDIUM",
-        createdBy: user.id,
-        assignedTo: assignedTo || null,
-      });
+        {
+          limit,
+          offset,
 
-    await activityService.log({
-      userId: user.id,
-      action: "TICKET_CREATED",
-      entityType: "TICKET",
-      entityId: ticket.id,
-      ticketId: ticket.id,
-      squadId: ticket.squadId,
-      sprintId: ticket.sprintId,
-      description: `Ticket "${ticket.title}" was created`,
-    });
+          status:
+            filters.status,
 
-    return ticket;
+          priority:
+            filters.priority,
+
+          sortBy:
+            query.sortBy,
+
+          sortOrder:
+            query.sortOrder,
+        }
+      );
+
+    const total =
+      await ticketRepository.countBySprintId(
+        sprintId,
+        filters
+      );
+
+    return {
+      tickets,
+
+      pagination:
+        buildPagination(
+          page,
+          limit,
+          total
+        ),
+    };
   }
 
   // ==========================================
-  // GET TICKETS BY SPRINT
+  // GET BY SQUAD
   // ==========================================
 
-async getAllBySprint(
-  sprintId,
-  query = {},
-  user
-) {
-  if (!user) {
-    throw new AppError(
-      "Authentication required",
-      401
-    );
-  }
-
-  const sprint =
-    await sprintRepository.findById(
-      sprintId
-    );
-
-  if (!sprint) {
-    throw new AppError(
-      "Sprint not found",
-      404
-    );
-  }
-
-  await this.ensureSquadAccess(
-    sprint.squadId,
-    user
-  );
-
-  const {
-    page,
-    limit,
-    offset,
-  } = getPagination(query);
-
-  const filters = {
-    status: query.status,
-    priority: query.priority,
-  };
-
-  const tickets =
-    await ticketRepository.findAllBySprintId(
-      sprintId,
-      {
-        limit,
-        offset,
-        status: filters.status,
-        priority: filters.priority,
-        sortBy: query.sortBy,
-        sortOrder: query.sortOrder,
-      }
-    );
-
-  const total =
-    await ticketRepository.countBySprintId(
-      sprintId,
-      filters
-    );
-
-  return {
-    tickets,
-    pagination: buildPagination(
-      page,
-      limit,
-      total
-    ),
-  };
-}
-
-  // ==========================================
-  // GET TICKETS BY SQUAD
-  // ==========================================
-
-async getAllBySquad(
-  squadId,
-  query = {},
-  user
-) {
-  if (!user) {
-    throw new AppError(
-      "Authentication required",
-      401
-    );
-  }
-
-  const squad =
-    await squadRepository.findById(
-      squadId
-    );
-
-  if (!squad) {
-    throw new AppError(
-      "Squad not found",
-      404
-    );
-  }
-
-  await this.ensureSquadAccess(
+  async getAllBySquad(
     squadId,
+    query = {},
     user
-  );
+  ) {
+    if (!user?.id) {
+      throw new AppError(
+        "Authentication required",
+        401
+      );
+    }
 
-  const {
-    page,
-    limit,
-    offset,
-  } = getPagination(query);
+    const squad =
+      await squadRepository.findById(
+        squadId
+      );
 
-  const filters = {
-    status: query.status,
-    priority: query.priority,
-  };
+    if (!squad) {
+      throw new AppError(
+        "Squad not found",
+        404
+      );
+    }
 
-  const tickets =
-    await ticketRepository.findAllBySquadId(
+    await this.ensureSquadAccess(
       squadId,
-      {
-        limit,
-        offset,
-        status: filters.status,
-        priority: filters.priority,
-        sortBy: query.sortBy,
-        sortOrder: query.sortOrder,
-      }
+      user
     );
 
-  const total =
-    await ticketRepository.countBySquadId(
-      squadId,
-      filters
-    );
-
-  return {
-    tickets,
-    pagination: buildPagination(
+    const {
       page,
       limit,
-      total
-    ),
-  };
-}
+      offset,
+    } = getPagination(query);
+
+    const filters = {
+      status:
+        query.status,
+
+      priority:
+        query.priority,
+    };
+
+    const tickets =
+      await ticketRepository.findAllBySquadId(
+        squadId,
+        {
+          limit,
+          offset,
+
+          status:
+            filters.status,
+
+          priority:
+            filters.priority,
+
+          sortBy:
+            query.sortBy,
+
+          sortOrder:
+            query.sortOrder,
+        }
+      );
+
+    const total =
+      await ticketRepository.countBySquadId(
+        squadId,
+        filters
+      );
+
+    return {
+      tickets,
+
+      pagination:
+        buildPagination(
+          page,
+          limit,
+          total
+        ),
+    };
+  }
+
   // ==========================================
-  // GET TICKET BY ID
+  // GET BY ID
   // ==========================================
 
-  async getById(id, user) {
-    if (!user) {
+  async getById(
+    id,
+    user
+  ) {
+    if (!user?.id) {
       throw new AppError(
         "Authentication required",
         401
@@ -427,7 +462,9 @@ async getAllBySquad(
     }
 
     const ticket =
-      await ticketRepository.findById(id);
+      await ticketRepository.findById(
+        id
+      );
 
     if (!ticket) {
       throw new AppError(
@@ -435,10 +472,6 @@ async getAllBySquad(
         404
       );
     }
-
-    // ------------------------------------------
-    // CHECK ACCESS TO TICKET'S SQUAD
-    // ------------------------------------------
 
     await this.ensureSquadAccess(
       ticket.squadId,
@@ -457,19 +490,17 @@ async getAllBySquad(
     ticketData,
     user
   ) {
-    if (!user) {
+    if (!user?.id) {
       throw new AppError(
         "Authentication required",
         401
       );
     }
 
-    // ------------------------------------------
-    // FIND EXISTING TICKET
-    // ------------------------------------------
-
     const ticket =
-      await ticketRepository.findById(id);
+      await ticketRepository.findById(
+        id
+      );
 
     if (!ticket) {
       throw new AppError(
@@ -478,18 +509,10 @@ async getAllBySquad(
       );
     }
 
-    // ------------------------------------------
-    // CHECK CURRENT SQUAD ACCESS
-    // ------------------------------------------
-
     await this.ensureSquadAccess(
       ticket.squadId,
       user
     );
-
-    // ------------------------------------------
-    // COMPLETED SPRINT PROTECTION
-    // ------------------------------------------
 
     const currentSprint =
       await sprintRepository.findById(
@@ -504,7 +527,8 @@ async getAllBySquad(
     }
 
     if (
-      currentSprint.status === "COMPLETED"
+      currentSprint.status ===
+      "COMPLETED"
     ) {
       throw new AppError(
         "Cannot modify a ticket in a completed sprint",
@@ -512,25 +536,19 @@ async getAllBySquad(
       );
     }
 
-    // ------------------------------------------
-    // VALIDATE STATUS
-    // ------------------------------------------
-
+    // Status must ONLY be changed through
+    // updateStatus().
     if (
-      ticketData.status &&
-      !VALID_STATUSES.includes(
-        ticketData.status
+      Object.prototype.hasOwnProperty.call(
+        ticketData,
+        "status"
       )
     ) {
       throw new AppError(
-        "Invalid ticket status",
+        "Use the ticket status endpoint to change ticket status",
         400
       );
     }
-
-    // ------------------------------------------
-    // VALIDATE PRIORITY
-    // ------------------------------------------
 
     if (
       ticketData.priority &&
@@ -544,19 +562,15 @@ async getAllBySquad(
       );
     }
 
-    // ------------------------------------------
-    // DETERMINE FINAL SQUAD
-    // ------------------------------------------
-
     const finalSquadId =
       ticketData.squadId ||
       ticket.squadId;
 
-    // ------------------------------------------
-    // CHECK NEW SQUAD
-    // ------------------------------------------
-
-    if (ticketData.squadId) {
+    if (
+      ticketData.squadId &&
+      ticketData.squadId !==
+        ticket.squadId
+    ) {
       const squad =
         await squadRepository.findById(
           ticketData.squadId
@@ -569,17 +583,11 @@ async getAllBySquad(
         );
       }
 
-      // MEMBER must also have access
-      // to the destination squad
       await this.ensureSquadAccess(
         ticketData.squadId,
         user
       );
     }
-
-    // ------------------------------------------
-    // DETERMINE FINAL SPRINT
-    // ------------------------------------------
 
     const finalSprintId =
       ticketData.sprintId ||
@@ -597,12 +605,9 @@ async getAllBySquad(
       );
     }
 
-    // ------------------------------------------
-    // SPRINT MUST BELONG TO FINAL SQUAD
-    // ------------------------------------------
-
     if (
-      sprint.squadId !== finalSquadId
+      sprint.squadId !==
+      finalSquadId
     ) {
       throw new AppError(
         "Sprint does not belong to this squad",
@@ -610,12 +615,9 @@ async getAllBySquad(
       );
     }
 
-    // ------------------------------------------
-    // CANNOT USE COMPLETED SPRINT
-    // ------------------------------------------
-
     if (
-      sprint.status === "COMPLETED"
+      sprint.status ===
+      "COMPLETED"
     ) {
       throw new AppError(
         "Cannot move or update a ticket in a completed sprint",
@@ -623,13 +625,6 @@ async getAllBySquad(
       );
     }
 
-    // ------------------------------------------
-    // VALIDATE ASSIGNEE
-    // ------------------------------------------
-
-    // Important:
-    // null is allowed so a ticket can be
-    // unassigned.
     if (
       Object.prototype.hasOwnProperty.call(
         ticketData,
@@ -642,12 +637,9 @@ async getAllBySquad(
       );
     }
 
-    // ------------------------------------------
-    // PREPARE UPDATE DATA
-    // ------------------------------------------
-
     const updateData = {
-      updatedAt: new Date(),
+      updatedAt:
+        new Date(),
     };
 
     if (
@@ -676,8 +668,18 @@ async getAllBySquad(
         "title"
       )
     ) {
+      const title =
+        ticketData.title?.trim();
+
+      if (!title) {
+        throw new AppError(
+          "Ticket title cannot be empty",
+          400
+        );
+      }
+
       updateData.title =
-        ticketData.title.trim();
+        title;
     }
 
     if (
@@ -687,17 +689,9 @@ async getAllBySquad(
       )
     ) {
       updateData.description =
-        ticketData.description?.trim() || null;
-    }
-
-    if (
-      Object.prototype.hasOwnProperty.call(
-        ticketData,
-        "status"
-      )
-    ) {
-      updateData.status =
-        ticketData.status;
+        ticketData.description
+          ?.trim() ||
+        null;
     }
 
     if (
@@ -717,111 +711,75 @@ async getAllBySquad(
       )
     ) {
       updateData.assignedTo =
-        ticketData.assignedTo;
+        ticketData.assignedTo ||
+        null;
     }
 
-    // ------------------------------------------
-    // UPDATE
-    // ------------------------------------------
+    // ==========================================
+    // TRANSACTION
+    // Ticket update + activity
+    // ==========================================
 
-    const updatedTicket =
-      await ticketRepository.update(
-        id,
-        updateData
-      );
+    return await db.transaction(
+      async (tx) => {
+        const updatedTicket =
+          await ticketRepository.update(
+            id,
+            updateData,
+            tx
+          );
 
-    await activityService.log({
-      userId: user.id,
-      action: "TICKET_UPDATED",
-      entityType: "TICKET",
-      entityId: ticket.id,
-      ticketId: ticket.id,
-      squadId: updatedTicket.squadId,
-      sprintId: updatedTicket.sprintId,
-      description: `Ticket "${updatedTicket.title}" was updated`,
-    });
+        if (!updatedTicket) {
+          throw new AppError(
+            "Ticket update failed",
+            500
+          );
+        }
 
-    return updatedTicket;
-  }
+        await activityService.log(
+          {
+            userId:
+              user.id,
 
-  // ==========================================
-  // DELETE TICKET
-  // ==========================================
+            action:
+              "TICKET_UPDATED",
 
-  async delete(id, user) {
-    if (!user) {
-      throw new AppError(
-        "Authentication required",
-        401
-      );
-    }
+            entityType:
+              "TICKET",
 
-    // ------------------------------------------
-    // FIND TICKET
-    // ------------------------------------------
+            entityId:
+              updatedTicket.id,
 
-    const ticket =
-      await ticketRepository.findById(id);
+            ticketId:
+              updatedTicket.id,
 
-    if (!ticket) {
-      throw new AppError(
-        "Ticket not found",
-        404
-      );
-    }
+            squadId:
+              updatedTicket.squadId,
 
-    // ------------------------------------------
-    // CHECK SQUAD ACCESS
-    // ------------------------------------------
+            sprintId:
+              updatedTicket.sprintId,
 
-    await this.ensureSquadAccess(
-      ticket.squadId,
-      user
+            description:
+              `Ticket "${updatedTicket.title}" was updated`,
+          },
+          tx
+        );
+
+        return updatedTicket;
+      }
     );
-
-    // ------------------------------------------
-    // COMPLETED SPRINT PROTECTION
-    // ------------------------------------------
-
-    const sprint =
-      await sprintRepository.findById(
-        ticket.sprintId
-      );
-
-    if (
-      sprint &&
-      sprint.status === "COMPLETED"
-    ) {
-      throw new AppError(
-        "Cannot delete a ticket from a completed sprint",
-        400
-      );
-    }
-
-    // ------------------------------------------
-    // DELETE
-    // ------------------------------------------
-
-    await activityService.log({
-      userId: user.id,
-      action: "TICKET_DELETED",
-      entityType: "TICKET",
-      entityId: ticket.id,
-      ticketId: ticket.id,
-      squadId: ticket.squadId,
-      sprintId: ticket.sprintId,
-      description: `Ticket "${ticket.title}" was deleted`,
-    });
-
-    await ticketRepository.delete(id);
-
-    return {
-      message: "Ticket deleted successfully",
-    };
   }
 
-  async updateStatus(id, status, user) {
-    if (!user) {
+  // ==========================================
+  // UPDATE STATUS
+  // ==========================================
+
+  async updateStatus(
+    id,
+    status,
+    user
+  ) {
+    if (!user?.id) {
       throw new AppError(
         "Authentication required",
         401
@@ -829,7 +787,9 @@ async getAllBySquad(
     }
 
     const ticket =
-      await ticketRepository.findById(id);
+      await ticketRepository.findById(
+        id
+      );
 
     if (!ticket) {
       throw new AppError(
@@ -855,30 +815,42 @@ async getAllBySquad(
       );
     }
 
-    if (sprint.status === "COMPLETED") {
+    if (
+      sprint.status ===
+      "COMPLETED"
+    ) {
       throw new AppError(
         "Cannot change ticket status in a completed sprint",
         400
       );
     }
 
-    const currentStatus = ticket.status;
+    const currentStatus =
+      ticket.status;
 
-    // Same status — nothing to change
-    if (currentStatus === status) {
+    if (
+      currentStatus === status
+    ) {
       return ticket;
     }
 
     const allowedTransitions = {
-      TODO: ["IN_PROGRESS"],
-      IN_PROGRESS: ["TODO", "DONE"],
+      TODO: [
+        "IN_PROGRESS",
+      ],
+
+      IN_PROGRESS: [
+        "TODO",
+        "DONE",
+      ],
+
       DONE: [],
     };
 
     if (
-      !allowedTransitions[currentStatus]?.includes(
-        status
-      )
+      !allowedTransitions[
+        currentStatus
+      ]?.includes(status)
     ) {
       throw new AppError(
         `Invalid ticket status transition: ${currentStatus} → ${status}`,
@@ -886,29 +858,145 @@ async getAllBySquad(
       );
     }
 
-    const updatedTicket =
-      await ticketRepository.update(
-        id,
-        {
-          status,
-          updatedAt: new Date(),
+    // ==========================================
+    // TRANSACTION
+    // Status update + activity
+    // ==========================================
+
+    return await db.transaction(
+      async (tx) => {
+        const updatedTicket =
+          await ticketRepository.update(
+            id,
+            {
+              status,
+
+              updatedAt:
+                new Date(),
+            },
+            tx
+          );
+
+        if (!updatedTicket) {
+          throw new AppError(
+            "Ticket status update failed",
+            500
+          );
         }
-      );
 
-    await activityService.log({
-      userId: user.id,
-      action: "TICKET_STATUS_CHANGED",
-      entityType: "TICKET",
-      entityId: ticket.id,
-      ticketId: ticket.id,
-      squadId: ticket.squadId,
-      sprintId: ticket.sprintId,
-      description: `Ticket status changed from ${currentStatus} to ${status}`,
-    });
+        await activityService.log(
+          {
+            userId:
+              user.id,
 
-    return updatedTicket;
+            action:
+              "TICKET_STATUS_CHANGED",
+
+            entityType:
+              "TICKET",
+
+            entityId:
+              updatedTicket.id,
+
+            ticketId:
+              updatedTicket.id,
+
+            squadId:
+              updatedTicket.squadId,
+
+            sprintId:
+              updatedTicket.sprintId,
+
+            description:
+              `Ticket status changed from ${currentStatus} to ${status}`,
+          },
+          tx
+        );
+
+        return updatedTicket;
+      }
+    );
   }
 
+  // ==========================================
+  // DELETE
+  // ==========================================
+
+  async delete(
+    id,
+    user
+  ) {
+    if (!user?.id) {
+      throw new AppError(
+        "Authentication required",
+        401
+      );
+    }
+
+    const ticket =
+      await ticketRepository.findById(
+        id
+      );
+
+    if (!ticket) {
+      throw new AppError(
+        "Ticket not found",
+        404
+      );
+    }
+
+    await this.ensureSquadAccess(
+      ticket.squadId,
+      user
+    );
+
+    const sprint =
+      await sprintRepository.findById(
+        ticket.sprintId
+      );
+
+    if (
+      sprint &&
+      sprint.status ===
+        "COMPLETED"
+    ) {
+      throw new AppError(
+        "Cannot delete a ticket from a completed sprint",
+        400
+      );
+    }
+
+    /*
+     * IMPORTANT:
+     *
+     * Your current activity_logs.ticketId
+     * foreign key uses ON DELETE CASCADE.
+     *
+     * Therefore creating a TICKET_DELETED
+     * activity and then deleting the ticket
+     * would immediately delete that activity.
+     *
+     * Until we fix audit retention, simply
+     * delete the ticket here.
+     */
+
+    const deletedTicket =
+      await ticketRepository.delete(
+        id
+      );
+
+    if (!deletedTicket) {
+      throw new AppError(
+        "Ticket deletion failed",
+        500
+      );
+    }
+
+    return {
+      message:
+        "Ticket deleted successfully",
+    };
+  }
 }
 
 export default new TicketService();

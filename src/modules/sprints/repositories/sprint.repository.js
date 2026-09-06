@@ -20,14 +20,21 @@ class SprintRepository {
   // FIND BY ID
   // ==========================================
 
-  async findById(id) {
-    const result = await db
-      .select()
-      .from(sprints)
-      .where(
-        eq(sprints.id, id)
-      )
-      .limit(1);
+  async findById(
+    id,
+    database = db
+  ) {
+    const result =
+      await database
+        .select()
+        .from(sprints)
+        .where(
+          eq(
+            sprints.id,
+            id
+          )
+        )
+        .limit(1);
 
     return result[0] || null;
   }
@@ -63,12 +70,23 @@ class SprintRepository {
     }
 
     const sortColumns = {
-      name: sprints.name,
-      startDate: sprints.startDate,
-      endDate: sprints.endDate,
-      status: sprints.status,
-      createdAt: sprints.createdAt,
-      updatedAt: sprints.updatedAt,
+      name:
+        sprints.name,
+
+      startDate:
+        sprints.startDate,
+
+      endDate:
+        sprints.endDate,
+
+      status:
+        sprints.status,
+
+      createdAt:
+        sprints.createdAt,
+
+      updatedAt:
+        sprints.updatedAt,
     };
 
     const sortColumn =
@@ -101,12 +119,14 @@ class SprintRepository {
   }
 
   // ==========================================
-  // COUNT BY SQUAD
+  // COUNT
   // ==========================================
 
   async countBySquadId(
     squadId,
-    { status } = {}
+    {
+      status,
+    } = {}
   ) {
     const conditions = [
       eq(
@@ -124,17 +144,19 @@ class SprintRepository {
       );
     }
 
-    const result = await db
-      .select({
-        count: count(),
-      })
-      .from(sprints)
-      .where(
-        and(...conditions)
-      );
+    const [result] =
+      await db
+        .select({
+          count:
+            count(),
+        })
+        .from(sprints)
+        .where(
+          and(...conditions)
+        );
 
     return Number(
-      result[0]?.count || 0
+      result?.count || 0
     );
   }
 
@@ -154,13 +176,11 @@ class SprintRepository {
         squadId
       ),
 
-      // Existing start < requested end
       lt(
         sprints.startDate,
         endDate
       ),
 
-      // Existing end > requested start
       gt(
         sprints.endDate,
         startDate
@@ -176,13 +196,14 @@ class SprintRepository {
       );
     }
 
-    const result = await db
-      .select()
-      .from(sprints)
-      .where(
-        and(...conditions)
-      )
-      .limit(1);
+    const result =
+      await db
+        .select()
+        .from(sprints)
+        .where(
+          and(...conditions)
+        )
+        .limit(1);
 
     return result[0] || null;
   }
@@ -191,13 +212,19 @@ class SprintRepository {
   // CREATE
   // ==========================================
 
-  async create(sprintData) {
-    const result = await db
-      .insert(sprints)
-      .values(sprintData)
-      .returning();
+  async create(
+    sprintData,
+    database = db
+  ) {
+    const [sprint] =
+      await database
+        .insert(sprints)
+        .values(
+          sprintData
+        )
+        .returning();
 
-    return result[0];
+    return sprint;
   }
 
   // ==========================================
@@ -206,32 +233,46 @@ class SprintRepository {
 
   async update(
     id,
-    sprintData
+    sprintData,
+    database = db
   ) {
-    const result = await db
-      .update(sprints)
-      .set(sprintData)
-      .where(
-        eq(sprints.id, id)
-      )
-      .returning();
+    const [sprint] =
+      await database
+        .update(sprints)
+        .set(
+          sprintData
+        )
+        .where(
+          eq(
+            sprints.id,
+            id
+          )
+        )
+        .returning();
 
-    return result[0] || null;
+    return sprint || null;
   }
 
   // ==========================================
   // DELETE
   // ==========================================
 
-  async delete(id) {
-    const result = await db
-      .delete(sprints)
-      .where(
-        eq(sprints.id, id)
-      )
-      .returning();
+  async delete(
+    id,
+    database = db
+  ) {
+    const [sprint] =
+      await database
+        .delete(sprints)
+        .where(
+          eq(
+            sprints.id,
+            id
+          )
+        )
+        .returning();
 
-    return result[0] || null;
+    return sprint || null;
   }
 }
 

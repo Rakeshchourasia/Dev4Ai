@@ -1,8 +1,12 @@
+import { db } from "../../../db/index.js";
+
 import sprintRepository from "../repositories/sprint.repository.js";
 
 import squadRepository from "../../squads/repositories/squad.repository.js";
 
 import squadMemberRepository from "../../squads/repositories/squadMember.repository.js";
+
+import activityService from "../../activity/services/activity.service.js";
 
 import AppError from "../../../shared/errors/AppError.js";
 
@@ -19,7 +23,7 @@ const VALID_STATUSES = [
 
 class SprintService {
   // ==========================================
-  // ENSURE SQUAD ACCESS
+  // SQUAD ACCESS
   // ==========================================
 
   async ensureSquadAccess(
@@ -68,6 +72,13 @@ class SprintService {
       endDate,
     } = sprintData;
 
+    if (!user?.id) {
+      throw new AppError(
+        "Authentication required",
+        401
+      );
+    }
+
     if (!squadId) {
       throw new AppError(
         "Squad ID is required",
@@ -110,10 +121,14 @@ class SprintService {
     );
 
     const start =
-      new Date(startDate);
+      new Date(
+        startDate
+      );
 
     const end =
-      new Date(endDate);
+      new Date(
+        endDate
+      );
 
     if (
       Number.isNaN(
@@ -129,7 +144,9 @@ class SprintService {
       );
     }
 
-    if (start >= end) {
+    if (
+      start >= end
+    ) {
       throw new AppError(
         "Start date must be before end date",
         400
@@ -150,13 +167,57 @@ class SprintService {
       );
     }
 
-    return await sprintRepository.create({
-      squadId,
-      name: name.trim(),
-      startDate: start,
-      endDate: end,
-      status: "PLANNED",
-    });
+    return await db.transaction(
+      async (tx) => {
+        const sprint =
+          await sprintRepository.create(
+            {
+              squadId,
+
+              name:
+                name.trim(),
+
+              startDate:
+                start,
+
+              endDate:
+                end,
+
+              status:
+                "PLANNED",
+            },
+            tx
+          );
+
+        await activityService.log(
+          {
+            userId:
+              user.id,
+
+            action:
+              "SPRINT_CREATED",
+
+            entityType:
+              "SPRINT",
+
+            entityId:
+              sprint.id,
+
+            squadId:
+              sprint.squadId,
+
+            sprintId:
+              sprint.id,
+
+            description:
+              `Sprint "${sprint.name}" was created`,
+          },
+          tx
+        );
+
+        return sprint;
+      }
+    );
   }
 
   // ==========================================
@@ -189,10 +250,13 @@ class SprintService {
       page,
       limit,
       offset,
-    } = getPagination(query);
+    } = getPagination(
+      query
+    );
 
     const filters = {
-      status: query.status,
+      status:
+        query.status,
     };
 
     const sprints =
@@ -201,9 +265,15 @@ class SprintService {
         {
           limit,
           offset,
-          status: filters.status,
-          sortBy: query.sortBy,
-          sortOrder: query.sortOrder,
+
+          status:
+            filters.status,
+
+          sortBy:
+            query.sortBy,
+
+          sortOrder:
+            query.sortOrder,
         }
       );
 
@@ -262,6 +332,13 @@ class SprintService {
     sprintData,
     user
   ) {
+    if (!user?.id) {
+      throw new AppError(
+        "Authentication required",
+        401
+      );
+    }
+
     const sprint =
       await sprintRepository.findById(
         id
@@ -279,22 +356,15 @@ class SprintService {
       user
     );
 
-    // ------------------------------------------
-    // COMPLETED SPRINT
-    // ------------------------------------------
-
     if (
-      sprint.status === "COMPLETED"
+      sprint.status ===
+      "COMPLETED"
     ) {
       throw new AppError(
         "Completed sprint cannot be updated",
         400
       );
     }
-
-    // ------------------------------------------
-    // SQUAD CHANGE
-    // ------------------------------------------
 
     const squadId =
       sprintData.squadId ||
@@ -322,10 +392,6 @@ class SprintService {
         user
       );
     }
-
-    // ------------------------------------------
-    // DATES
-    // ------------------------------------------
 
     const start =
       sprintData.startDate
@@ -359,16 +425,14 @@ class SprintService {
       );
     }
 
-    if (start >= end) {
+    if (
+      start >= end
+    ) {
       throw new AppError(
         "Start date must be before end date",
         400
       );
     }
-
-    // ------------------------------------------
-    // OVERLAP
-    // ------------------------------------------
 
     const overlappingSprint =
       await sprintRepository.findOverlappingSprint(
@@ -385,30 +449,88 @@ class SprintService {
       );
     }
 
-    // ------------------------------------------
-    // UPDATE DATA
-    // ------------------------------------------
-
     const updateData = {
       ...sprintData,
+
       squadId,
-      startDate: start,
-      endDate: end,
-      updatedAt: new Date(),
+
+      startDate:
+        start,
+
+      endDate:
+        end,
+
+      updatedAt:
+        new Date(),
     };
 
-    if (updateData.name) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        updateData,
+        "name"
+      )
+    ) {
+      const trimmedName =
+        updateData.name?.trim();
+
+      if (!trimmedName) {
+        throw new AppError(
+          "Sprint name cannot be empty",
+          400
+        );
+      }
+
       updateData.name =
-        updateData.name.trim();
+        trimmedName;
     }
 
-    // Status should be changed only
-    // through updateStatus()
+    // Status only through updateStatus()
     delete updateData.status;
 
-    return await sprintRepository.update(
-      id,
-      updateData
+    return await db.transaction(
+      async (tx) => {
+        const updatedSprint =
+          await sprintRepository.update(
+            id,
+            updateData,
+            tx
+          );
+
+        if (!updatedSprint) {
+          throw new AppError(
+            "Sprint update failed",
+            500
+          );
+        }
+
+        await activityService.log(
+          {
+            userId:
+              user.id,
+
+            action:
+              "SPRINT_UPDATED",
+
+            entityType:
+              "SPRINT",
+
+            entityId:
+              updatedSprint.id,
+
+            squadId:
+              updatedSprint.squadId,
+
+            sprintId:
+              updatedSprint.id,
+
+            description:
+              `Sprint "${updatedSprint.name}" was updated`,
+          },
+          tx
+        );
+
+        return updatedSprint;
+      }
     );
   }
 
@@ -421,6 +543,13 @@ class SprintService {
     status,
     user
   ) {
+    if (!user?.id) {
+      throw new AppError(
+        "Authentication required",
+        401
+      );
+    }
+
     if (
       !VALID_STATUSES.includes(
         status
@@ -450,8 +579,14 @@ class SprintService {
     );
 
     const allowedTransitions = {
-      PLANNED: ["ACTIVE"],
-      ACTIVE: ["COMPLETED"],
+      PLANNED: [
+        "ACTIVE",
+      ],
+
+      ACTIVE: [
+        "COMPLETED",
+      ],
+
       COMPLETED: [],
     };
 
@@ -466,11 +601,54 @@ class SprintService {
       );
     }
 
-    return await sprintRepository.update(
-      id,
-      {
-        status,
-        updatedAt: new Date(),
+    return await db.transaction(
+      async (tx) => {
+        const updatedSprint =
+          await sprintRepository.update(
+            id,
+            {
+              status,
+
+              updatedAt:
+                new Date(),
+            },
+            tx
+          );
+
+        if (!updatedSprint) {
+          throw new AppError(
+            "Sprint status update failed",
+            500
+          );
+        }
+
+        await activityService.log(
+          {
+            userId:
+              user.id,
+
+            action:
+              "SPRINT_STATUS_CHANGED",
+
+            entityType:
+              "SPRINT",
+
+            entityId:
+              updatedSprint.id,
+
+            squadId:
+              updatedSprint.squadId,
+
+            sprintId:
+              updatedSprint.id,
+
+            description:
+              `Sprint status changed from ${sprint.status} to ${status}`,
+          },
+          tx
+        );
+
+        return updatedSprint;
       }
     );
   }
@@ -501,7 +679,8 @@ class SprintService {
     );
 
     if (
-      sprint.status === "COMPLETED"
+      sprint.status ===
+      "COMPLETED"
     ) {
       throw new AppError(
         "Completed sprint cannot be deleted",
@@ -509,9 +688,26 @@ class SprintService {
       );
     }
 
-    await sprintRepository.delete(
-      id
-    );
+    /*
+     * We are intentionally NOT creating
+     * SPRINT_DELETED activity here yet.
+     *
+     * Your current activity_logs.sprint_id
+     * uses ON DELETE CASCADE, so deleting
+     * the sprint would delete that audit log.
+     */
+
+    const deletedSprint =
+      await sprintRepository.delete(
+        id
+      );
+
+    if (!deletedSprint) {
+      throw new AppError(
+        "Sprint deletion failed",
+        500
+      );
+    }
 
     return {
       message:

@@ -26,18 +26,27 @@ class TicketRepository {
     } = {}
   ) {
     const conditions = [
-      eq(tickets.squadId, squadId),
+      eq(
+        tickets.squadId,
+        squadId
+      ),
     ];
 
     if (status) {
       conditions.push(
-        eq(tickets.status, status)
+        eq(
+          tickets.status,
+          status
+        )
       );
     }
 
     if (priority) {
       conditions.push(
-        eq(tickets.priority, priority)
+        eq(
+          tickets.priority,
+          priority
+        )
       );
     }
 
@@ -58,13 +67,24 @@ class TicketRepository {
         ? asc(sortColumn)
         : desc(sortColumn);
 
-    return await db
+    let query = db
       .select()
       .from(tickets)
-      .where(and(...conditions))
-      .orderBy(order)
-      .limit(limit)
-      .offset(offset);
+      .where(
+        and(...conditions)
+      )
+      .orderBy(order);
+
+    if (
+      limit !== undefined &&
+      offset !== undefined
+    ) {
+      query = query
+        .limit(limit)
+        .offset(offset);
+    }
+
+    return await query;
   }
 
   // ==========================================
@@ -79,18 +99,27 @@ class TicketRepository {
     } = {}
   ) {
     const conditions = [
-      eq(tickets.squadId, squadId),
+      eq(
+        tickets.squadId,
+        squadId
+      ),
     ];
 
     if (status) {
       conditions.push(
-        eq(tickets.status, status)
+        eq(
+          tickets.status,
+          status
+        )
       );
     }
 
     if (priority) {
       conditions.push(
-        eq(tickets.priority, priority)
+        eq(
+          tickets.priority,
+          priority
+        )
       );
     }
 
@@ -99,9 +128,13 @@ class TicketRepository {
         count: count(),
       })
       .from(tickets)
-      .where(and(...conditions));
+      .where(
+        and(...conditions)
+      );
 
-    return Number(result.count);
+    return Number(
+      result?.count || 0
+    );
   }
 
   // ==========================================
@@ -120,18 +153,27 @@ class TicketRepository {
     } = {}
   ) {
     const conditions = [
-      eq(tickets.sprintId, sprintId),
+      eq(
+        tickets.sprintId,
+        sprintId
+      ),
     ];
 
     if (status) {
       conditions.push(
-        eq(tickets.status, status)
+        eq(
+          tickets.status,
+          status
+        )
       );
     }
 
     if (priority) {
       conditions.push(
-        eq(tickets.priority, priority)
+        eq(
+          tickets.priority,
+          priority
+        )
       );
     }
 
@@ -152,13 +194,24 @@ class TicketRepository {
         ? asc(sortColumn)
         : desc(sortColumn);
 
-    return await db
+    let query = db
       .select()
       .from(tickets)
-      .where(and(...conditions))
-      .orderBy(order)
-      .limit(limit)
-      .offset(offset);
+      .where(
+        and(...conditions)
+      )
+      .orderBy(order);
+
+    if (
+      limit !== undefined &&
+      offset !== undefined
+    ) {
+      query = query
+        .limit(limit)
+        .offset(offset);
+    }
+
+    return await query;
   }
 
   // ==========================================
@@ -173,18 +226,27 @@ class TicketRepository {
     } = {}
   ) {
     const conditions = [
-      eq(tickets.sprintId, sprintId),
+      eq(
+        tickets.sprintId,
+        sprintId
+      ),
     ];
 
     if (status) {
       conditions.push(
-        eq(tickets.status, status)
+        eq(
+          tickets.status,
+          status
+        )
       );
     }
 
     if (priority) {
       conditions.push(
-        eq(tickets.priority, priority)
+        eq(
+          tickets.priority,
+          priority
+        )
       );
     }
 
@@ -193,21 +255,34 @@ class TicketRepository {
         count: count(),
       })
       .from(tickets)
-      .where(and(...conditions));
+      .where(
+        and(...conditions)
+      );
 
-    return Number(result.count);
+    return Number(
+      result?.count || 0
+    );
   }
 
   // ==========================================
   // FIND BY ID
   // ==========================================
 
-  async findById(id) {
-    const [ticket] = await db
-      .select()
-      .from(tickets)
-      .where(eq(tickets.id, id))
-      .limit(1);
+  async findById(
+    id,
+    database = db
+  ) {
+    const [ticket] =
+      await database
+        .select()
+        .from(tickets)
+        .where(
+          eq(
+            tickets.id,
+            id
+          )
+        )
+        .limit(1);
 
     return ticket || null;
   }
@@ -216,11 +291,15 @@ class TicketRepository {
   // CREATE
   // ==========================================
 
-  async create(data) {
-    const [ticket] = await db
-      .insert(tickets)
-      .values(data)
-      .returning();
+  async create(
+    data,
+    database = db
+  ) {
+    const [ticket] =
+      await database
+        .insert(tickets)
+        .values(data)
+        .returning();
 
     return ticket;
   }
@@ -229,12 +308,22 @@ class TicketRepository {
   // UPDATE
   // ==========================================
 
-  async update(id, data) {
-    const [ticket] = await db
-      .update(tickets)
-      .set(data)
-      .where(eq(tickets.id, id))
-      .returning();
+  async update(
+    id,
+    data,
+    database = db
+  ) {
+    const [ticket] =
+      await database
+        .update(tickets)
+        .set(data)
+        .where(
+          eq(
+            tickets.id,
+            id
+          )
+        )
+        .returning();
 
     return ticket || null;
   }
@@ -243,11 +332,20 @@ class TicketRepository {
   // DELETE
   // ==========================================
 
-  async delete(id) {
-    const [ticket] = await db
-      .delete(tickets)
-      .where(eq(tickets.id, id))
-      .returning();
+  async delete(
+    id,
+    database = db
+  ) {
+    const [ticket] =
+      await database
+        .delete(tickets)
+        .where(
+          eq(
+            tickets.id,
+            id
+          )
+        )
+        .returning();
 
     return ticket || null;
   }
