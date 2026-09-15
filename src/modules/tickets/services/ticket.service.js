@@ -966,36 +966,64 @@ class TicketService {
       );
     }
 
-    /*
-     * IMPORTANT:
-     *
-     * Your current activity_logs.ticketId
-     * foreign key uses ON DELETE CASCADE.
-     *
-     * Therefore creating a TICKET_DELETED
-     * activity and then deleting the ticket
-     * would immediately delete that activity.
-     *
-     * Until we fix audit retention, simply
-     * delete the ticket here.
-     */
+    // ==========================================
+    // TRANSACTION
+    // Log TICKET_DELETED first, then delete ticket.
+    // activity_logs.ticket_id uses SET NULL on delete,
+    // so the audit entry survives (ticketId → null).
+    // entityId + entityType + description preserve history.
+    // ==========================================
 
-    const deletedTicket =
-      await ticketRepository.delete(
-        id
-      );
+    return await db.transaction(
+      async (tx) => {
+        await activityService.log(
+          {
+            userId:
+              user.id,
 
-    if (!deletedTicket) {
-      throw new AppError(
-        "Ticket deletion failed",
-        500
-      );
-    }
+            action:
+              "TICKET_DELETED",
 
-    return {
-      message:
-        "Ticket deleted successfully",
-    };
+            entityType:
+              "TICKET",
+
+            entityId:
+              ticket.id,
+
+            ticketId:
+              ticket.id,
+
+            squadId:
+              ticket.squadId,
+
+            sprintId:
+              ticket.sprintId,
+
+            description:
+              `Ticket "${ticket.title}" was deleted`,
+          },
+          tx
+        );
+
+        const deletedTicket =
+          await ticketRepository.delete(
+            id,
+            tx
+          );
+
+        if (!deletedTicket) {
+          throw new AppError(
+            "Ticket deletion failed",
+            500
+          );
+        }
+
+        return {
+          message:
+            "Ticket deleted successfully",
+        };
+      }
+    );
   }
 }
 

@@ -1,18 +1,24 @@
 import squadMemberService from "../services/squadMember.service.js";
+import AppError from "../../../shared/errors/AppError.js";
 
 class SquadMemberController {
   async addMember(req, res, next) {
     try {
-      const member =
-        await squadMemberService.addMember(
-          req.params.squadId,
-          req.body.userId
-        );
+      const squadId = req.params.squadId || req.body.squadId;
+      const userId = req.body.userId;
+
+      if (!squadId) {
+        throw new AppError("Squad ID is required", 400);
+      }
+
+      const member = await squadMemberService.addMember(
+        squadId,
+        userId
+      );
 
       return res.status(201).json({
         success: true,
-        message:
-          "Member added successfully",
+        message: "Member added successfully",
         data: member,
       });
     } catch (error) {
@@ -22,15 +28,13 @@ class SquadMemberController {
 
   async getMembers(req, res, next) {
     try {
-      const members =
-        await squadMemberService.getMembers(
-          req.params.squadId
-        );
+      const members = await squadMemberService.getMembers(
+        req.params.squadId
+      );
 
       return res.status(200).json({
         success: true,
-        message:
-          "Squad members fetched successfully",
+        message: "Squad members fetched successfully",
         data: members,
       });
     } catch (error) {
@@ -38,27 +42,18 @@ class SquadMemberController {
     }
   }
 
-  async checkMembership(
-    req,
-    res,
-    next
-  ) {
+  async checkMembership(req, res, next) {
     try {
-      const {
-        squadId,
-        userId,
-      } = req.params;
+      const { squadId, userId } = req.params;
 
-      const isMember =
-        await squadMemberService.checkMembership(
-          squadId,
-          userId
-        );
+      const isMember = await squadMemberService.checkMembership(
+        squadId,
+        userId
+      );
 
       return res.status(200).json({
         success: true,
-        message:
-          "Membership checked successfully",
+        message: "Membership checked successfully",
         data: {
           squadId,
           userId,
@@ -70,22 +65,19 @@ class SquadMemberController {
     }
   }
 
-  async removeMember(
-    req,
-    res,
-    next
-  ) {
+  async removeMember(req, res, next) {
     try {
-      const {
-        squadId,
-        userId,
-      } = req.params;
+      const squadId = req.params.squadId || req.query?.squadId || req.body?.squadId;
+      const userId = req.params.userId || req.params.id || req.body?.userId;
 
-      const result =
-        await squadMemberService.removeMember(
-          squadId,
-          userId
-        );
+      if (!squadId || !userId) {
+        throw new AppError("Squad ID and User ID are required", 400);
+      }
+
+      const result = await squadMemberService.removeMember(
+        squadId,
+        userId
+      );
 
       return res.status(200).json({
         success: true,

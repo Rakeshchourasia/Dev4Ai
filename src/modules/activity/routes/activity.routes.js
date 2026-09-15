@@ -7,24 +7,35 @@ import activityController from "../controllers/activity.controller.js";
 
 const router = Router();
 
-// Ticket activity
+// ------------------------------------------
+// GET /activities/tickets/:ticketId
+// Auth required. Squad access verified inside service
+// (fetches ticket → squadId → checks membership)
+// ------------------------------------------
 router.get(
-  "/tickets/:ticketId",
+  ["/tickets/:ticketId", "/ticket/:ticketId"],
   authenticate,
   activityController.getTicketActivity
 );
 
-// Squad activity
+// ------------------------------------------
+// GET /activities/squads/:squadId
+// Auth required. Squad access verified by middleware
+// ------------------------------------------
 router.get(
-  "/squads/:squadId",
+  ["/squads/:squadId", "/squad/:squadId"],
   authenticate,
   squadAccess("squadId"),
   activityController.getSquadActivity
 );
 
-// Sprint activity
+// ------------------------------------------
+// GET /activities/sprints/:sprintId
+// Auth required. Squad access verified inside service
+// (fetches sprint → squadId → checks membership)
+// ------------------------------------------
 router.get(
-  "/sprints/:sprintId",
+  ["/sprints/:sprintId", "/sprint/:sprintId"],
   authenticate,
   activityController.getSprintActivity
 );

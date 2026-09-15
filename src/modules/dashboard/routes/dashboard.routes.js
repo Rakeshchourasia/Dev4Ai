@@ -8,14 +8,14 @@ import dashboardController from "../controller/dashboard.controller.js";
 const router = Router();
 
 router.get(
-  "/squad/:squadId",
+  ["/squad/:squadId", "/squads/:squadId"],
   authenticate,
   squadAccess("squadId"),
   dashboardController.getSquadDashboard
 );
 
 router.get(
-  "/sprint/:sprintId",
+  ["/sprint/:sprintId", "/sprints/:sprintId"],
   authenticate,
   dashboardController.getSprintDashboard
 );

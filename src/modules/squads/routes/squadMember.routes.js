@@ -10,15 +10,42 @@ import { validate } from "../../../shared/middlewares/validate.js";
 
 import {
   addSquadMemberSchema,
-} from "../../../validation/squad-member.schema.js";
+  createSquadMemberSchema,
+} from "../../../validation/squadMember.schema.js";
 
 const router = Router();
 
 // ==========================================
-// ADD MEMBER
-// ADMIN ONLY
+// MOUNTED UNDER /squad-members
 // ==========================================
 
+router.post(
+  "/",
+  authenticate,
+  authorize("ADMIN"),
+  validate(createSquadMemberSchema),
+  squadMemberController.addMember
+);
+
+router.delete(
+  "/:squadId/:userId",
+  authenticate,
+  authorize("ADMIN"),
+  squadMemberController.removeMember
+);
+
+router.delete(
+  "/:id",
+  authenticate,
+  authorize("ADMIN"),
+  squadMemberController.removeMember
+);
+
+// ==========================================
+// MOUNTED UNDER /squads
+// ==========================================
+
+// ADD MEMBER (ADMIN ONLY)
 router.post(
   "/:squadId/members",
   authenticate,
@@ -27,11 +54,7 @@ router.post(
   squadMemberController.addMember
 );
 
-// ==========================================
-// GET ALL MEMBERS
-// ADMIN OR SQUAD MEMBER
-// ==========================================
-
+// GET ALL MEMBERS (ADMIN OR SQUAD MEMBER)
 router.get(
   "/:squadId/members",
   authenticate,
@@ -39,11 +62,7 @@ router.get(
   squadMemberController.getMembers
 );
 
-// ==========================================
-// CHECK MEMBERSHIP
-// ADMIN OR SQUAD MEMBER
-// ==========================================
-
+// CHECK MEMBERSHIP (ADMIN OR SQUAD MEMBER)
 router.get(
   "/:squadId/members/:userId",
   authenticate,
@@ -51,11 +70,7 @@ router.get(
   squadMemberController.checkMembership
 );
 
-// ==========================================
-// REMOVE MEMBER
-// ADMIN ONLY
-// ==========================================
-
+// REMOVE MEMBER (ADMIN ONLY)
 router.delete(
   "/:squadId/members/:userId",
   authenticate,

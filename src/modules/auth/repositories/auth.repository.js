@@ -5,8 +5,8 @@ import { refreshTokens } from "../../../db/schema/refreshTokens.schema.js";
 
 class AuthRepository {
 
-  async findByEmail(email) {
-    const result = await db
+  async findByEmail(email, database = db) {
+    const result = await database
       .select()
       .from(users)
       .where(eq(users.email, email));
@@ -14,8 +14,8 @@ class AuthRepository {
     return result[0] || null;
   }
 
-  async findById(id) {
-    const result = await db
+  async findById(id, database = db) {
+    const result = await database
       .select()
       .from(users)
       .where(eq(users.id, id));
@@ -23,8 +23,8 @@ class AuthRepository {
     return result[0] || null;
   }
 
-  async createUser(userData) {
-    const result = await db
+  async createUser(userData, database = db) {
+    const result = await database
       .insert(users)
       .values(userData)
       .returning();
@@ -32,8 +32,8 @@ class AuthRepository {
     return result[0];
   }
 
-  async updateUser(id, userData) {
-    const result = await db
+  async updateUser(id, userData, database = db) {
+    const result = await database
       .update(users)
       .set(userData)
       .where(eq(users.id, id))
@@ -80,16 +80,6 @@ class AuthRepository {
       .delete(refreshTokens)
       .where(eq(refreshTokens.userId, userId));
   }
-  async createUser(userData) {
-  const result = await db
-    .insert(users)
-    .values(userData)
-    .returning();
-
-  return result[0];
 }
-}
-
-
 
 export default new AuthRepository();

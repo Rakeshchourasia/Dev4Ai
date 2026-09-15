@@ -6,6 +6,8 @@ import squadRepository from "../../squads/repositories/squad.repository.js";
 
 import squadMemberRepository from "../../squads/repositories/squadMember.repository.js";
 
+import ticketRepository from "../../tickets/repositories/ticket.repository.js";
+
 import activityService from "../../activity/services/activity.service.js";
 
 import AppError from "../../../shared/errors/AppError.js";
@@ -601,6 +603,23 @@ class SprintService {
       );
     }
 
+    if (status === "ACTIVE") {
+      const activeSprint =
+        await sprintRepository.findActiveBySquadId(
+          sprint.squadId
+        );
+
+      if (
+        activeSprint &&
+        activeSprint.id !== id
+      ) {
+        throw new AppError(
+          "An active sprint already exists for this squad",
+          400
+        );
+      }
+    }
+
     return await db.transaction(
       async (tx) => {
         const updatedSprint =
@@ -688,31 +707,71 @@ class SprintService {
       );
     }
 
-    /*
-     * We are intentionally NOT creating
-     * SPRINT_DELETED activity here yet.
-     *
-     * Your current activity_logs.sprint_id
-     * uses ON DELETE CASCADE, so deleting
-     * the sprint would delete that audit log.
-     */
+    const ticketCount =
+      await ticketRepository.countBySprintId(id);
 
-    const deletedSprint =
-      await sprintRepository.delete(
-        id
-      );
-
-    if (!deletedSprint) {
+    if (ticketCount > 0) {
       throw new AppError(
-        "Sprint deletion failed",
-        500
+        "Cannot delete sprint with associated tickets. Move or delete tickets first.",
+        400
       );
     }
 
-    return {
-      message:
-        "Sprint deleted successfully",
-    };
+    // ==========================================
+    // TRANSACTION
+    // Log SPRINT_DELETED first, then delete sprint.
+    // activity_logs.sprint_id uses SET NULL on delete,
+    // so the audit entry survives (sprintId → null).
+    // entityId + entityType + description preserve history.
+    // ==========================================
+
+    return await db.transaction(
+      async (tx) => {
+        await activityService.log(
+          {
+            userId:
+              user.id,
+
+            action:
+              "SPRINT_DELETED",
+
+            entityType:
+              "SPRINT",
+
+            entityId:
+              sprint.id,
+
+            squadId:
+              sprint.squadId,
+
+            sprintId:
+              sprint.id,
+
+            description:
+              `Sprint "${sprint.name}" was deleted`,
+          },
+          tx
+        );
+
+        const deletedSprint =
+          await sprintRepository.delete(
+            id,
+            tx
+          );
+
+        if (!deletedSprint) {
+          throw new AppError(
+            "Sprint deletion failed",
+            500
+          );
+        }
+
+        return {
+          message:
+            "Sprint deleted successfully",
+        };
+      }
+    );
   }
 }
 

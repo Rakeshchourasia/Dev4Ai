@@ -12,16 +12,26 @@ security:
   - bearerAuth: []
 
 tags:
+  - name: Health
+    description: Service health check
   - name: Auth
     description: Authentication and user session APIs
   - name: Company
-    description: Company management APIs
+    description: Company management APIs (ADMIN only)
   - name: Squad
     description: Squad management APIs
+  - name: Squad Member
+    description: Squad membership management APIs
   - name: Sprint
     description: Sprint planning and status APIs
   - name: Ticket
     description: Ticket management APIs
+  - name: Activity
+    description: Activity and audit log APIs (squad-access controlled)
+  - name: Dashboard
+    description: Dashboard summary APIs
+  - name: GitHub
+    description: GitHub integration connection APIs
 
 components:
   securitySchemes:
@@ -175,11 +185,62 @@ components:
           example: false
         message:
           type: string
-          example: Invalid input
+          example: Validation failed
         errors:
           type: array
           items:
-            type: string
+            type: object
+            properties:
+              field:
+                type: string
+                example: email
+              message:
+                type: string
+                example: Invalid email address
+
+    ActivityLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        userId:
+          type: string
+          format: uuid
+          example: "7d1fbf7a-0d7d-48d5-a63d-c14d8d1a3bcd"
+        action:
+          type: string
+          example: "TICKET_CREATED"
+        entityType:
+          type: string
+          example: "TICKET"
+        entityId:
+          type: string
+          format: uuid
+          example: "7d4831fd-2dca-41d6-8914-5d9d9d4d3bcb"
+        description:
+          type: string
+          example: "Ticket \"Fix login bug\" was created"
+        ticketId:
+          type: string
+          format: uuid
+          nullable: true
+          example: "7d4831fd-2dca-41d6-8914-5d9d9d4d3bcb"
+        squadId:
+          type: string
+          format: uuid
+          nullable: true
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        sprintId:
+          type: string
+          format: uuid
+          nullable: true
+          example: "c231a116-e5ef-49aa-b0cc-7aeb7dd69f79"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-01T10:30:00.000Z"
 
     RegisterRequest:
       type: object
@@ -256,6 +317,56 @@ components:
           type: string
           example: "Core Platform"
 
+    SquadMember:
+      type: object
+      properties:
+        squadId:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        userId:
+          type: string
+          format: uuid
+          example: "7d1fbf7a-0d7d-48d5-a63d-c14d8d1a3bcd"
+        joinedAt:
+          type: string
+          format: date-time
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+            role:
+              type: string
+
+    SquadMemberAddRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: "7d1fbf7a-0d7d-48d5-a63d-c14d8d1a3bcd"
+
+    SquadMemberCreateRequest:
+      type: object
+      required: [squadId, userId]
+      properties:
+        squadId:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        userId:
+          type: string
+          format: uuid
+          example: "7d1fbf7a-0d7d-48d5-a63d-c14d8d1a3bcd"
+
     SprintCreateRequest:
       type: object
       required: [squadId, name, startDate, endDate]
@@ -306,7 +417,7 @@ components:
 
     TicketCreateRequest:
       type: object
-      required: [squadId, sprintId, title, createdBy]
+      required: [squadId, sprintId, title]
       properties:
         squadId:
           type: string
@@ -326,29 +437,32 @@ components:
           type: string
           enum: [LOW, MEDIUM, HIGH, URGENT]
           example: HIGH
-        createdBy:
-          type: string
-          format: uuid
-          example: "7d1fbf7a-0d7d-48d5-a63d-c14d8d1a3bcd"
+          description: "Defaults to MEDIUM if not provided"
         assignedTo:
           type: string
           format: uuid
           nullable: true
           example: "e897af10-e6a0-4293-a57d-79e35d26152c"
+          description: "Must be a member of the squad. createdBy is derived from the authenticated JWT — do NOT send it in the request body."
 
     TicketUpdateRequest:
       type: object
+      description: "Note: status changes must use the PATCH /tickets/{id}/status endpoint. Sending status in this request body will result in a 400 error."
       properties:
+        squadId:
+          type: string
+          format: uuid
+          example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+        sprintId:
+          type: string
+          format: uuid
+          example: "c231a116-e5ef-49aa-b0cc-7aeb7dd69f79"
         title:
           type: string
           example: "Improve dashboard filters"
         description:
           type: string
           example: "Add date-range filter"
-        status:
-          type: string
-          enum: [TODO, IN_PROGRESS, DONE]
-          example: IN_PROGRESS
         priority:
           type: string
           enum: [LOW, MEDIUM, HIGH, URGENT]
@@ -358,6 +472,16 @@ components:
           format: uuid
           nullable: true
           example: "e897af10-e6a0-4293-a57d-79e35d26152c"
+
+    TicketStatusUpdateRequest:
+      type: object
+      required: [status]
+      description: "Status lifecycle: TODO→IN_PROGRESS, IN_PROGRESS→TODO or DONE, DONE is terminal."
+      properties:
+        status:
+          type: string
+          enum: [TODO, IN_PROGRESS, DONE]
+          example: IN_PROGRESS
 
 paths:
   /auth/register:
@@ -494,6 +618,87 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+
+  /auth/github:
+    get:
+      tags: [Auth]
+      summary: Initiate GitHub OAuth login
+      description: Generates a cryptographically secure CSRF state token and PKCE code challenge, sets an HttpOnly verification cookie, and redirects the browser to GitHub's authorization consent screen.
+      responses:
+        '302':
+          description: Redirects to GitHub authorization endpoint
+          headers:
+            Location:
+              schema:
+                type: string
+                example: "https://github.com/login/oauth/authorize?client_id=...&scope=read:user+user:email&state=..."
+            Set-Cookie:
+              schema:
+                type: string
+                example: "devai_oauth_nonce=...; Path=/auth/github; HttpOnly; SameSite=Lax"
+        '200':
+          description: Returns authorization URL if requested with Accept application/json header
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          authUrl:
+                            type: string
+                          state:
+                            type: string
+
+  /auth/github/callback:
+    get:
+      tags: [Auth]
+      summary: GitHub OAuth callback handler
+      description: Receives the authorization code and state from GitHub, verifies CSRF state against the signed token, exchanges code and PKCE verifier for GitHub access token, retrieves the verified GitHub email and profile, and authenticates or links the DEVAI user account.
+      parameters:
+        - in: query
+          name: code
+          required: false
+          schema:
+            type: string
+          description: The authorization code returned by GitHub
+        - in: query
+          name: state
+          required: false
+          schema:
+            type: string
+          description: The CSRF state token issued by the backend
+        - in: query
+          name: error
+          required: false
+          schema:
+            type: string
+          description: Error code if authorization was denied
+        - in: query
+          name: error_description
+          required: false
+          schema:
+            type: string
+          description: Description of the authorization error
+      responses:
+        '200':
+          description: GitHub authentication successful, returns standard DEVAI access and refresh tokens
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid state, missing code, or unverified email
+        '502':
+          description: Failed to communicate with GitHub API
 
   /companies:
     post:
@@ -769,6 +974,181 @@ paths:
       responses:
         '200':
           description: Squad deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /squads/{squadId}/members:
+    post:
+      tags: [Squad Member]
+      summary: Add a user to a squad
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: squadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SquadMemberAddRequest'
+      responses:
+        '201':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SquadMember'
+    get:
+      tags: [Squad Member]
+      summary: Get all members of a squad
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: squadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Squad members fetched successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SquadMember'
+
+  /squads/{squadId}/members/{userId}:
+    get:
+      tags: [Squad Member]
+      summary: Check if a user is a member of a squad
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: squadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Membership checked successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          squadId:
+                            type: string
+                            format: uuid
+                          userId:
+                            type: string
+                            format: uuid
+                          isMember:
+                            type: boolean
+    delete:
+      tags: [Squad Member]
+      summary: Remove a member from a squad
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: squadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /squad-members:
+    post:
+      tags: [Squad Member]
+      summary: Add a member to a squad via squad-members
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SquadMemberCreateRequest'
+      responses:
+        '201':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SquadMember'
+
+  /squad-members/{id}:
+    delete:
+      tags: [Squad Member]
+      summary: Remove a member from a squad via squad-members
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: squadId
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member removed successfully
           content:
             application/json:
               schema:
@@ -1089,3 +1469,1747 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a squad member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tickets/{id}/status:
+    patch:
+      tags: [Ticket]
+      summary: Change ticket status
+      description: |
+        Enforces the status lifecycle:
+        - TODO → IN_PROGRESS
+        - IN_PROGRESS → TODO or DONE
+        - DONE is terminal (no further transitions allowed)
+        Cannot change status of a ticket in a COMPLETED sprint.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketStatusUpdateRequest'
+      responses:
+        '200':
+          description: Ticket status updated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+        '400':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Ticket not found
+
+  # ============================================================
+  # HEALTH
+  # ============================================================
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Service health check
+      description: Returns service and database connection status. No authentication required.
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Service is healthy
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: ok
+                      database:
+                        type: string
+                        example: connected
+        '503':
+          description: Service is unhealthy (database unreachable)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Service is unhealthy
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: error
+                      database:
+                        type: string
+                        example: disconnected
+
+  # ============================================================
+  # ACTIVITY
+  # ============================================================
+
+  /activities/tickets/{ticketId}:
+    get:
+      tags: [Activity]
+      summary: Get activity logs for a ticket
+      description: |
+        Returns all activity logs associated with the specified ticket.
+        **Authorization:** The caller must be a member of the squad that owns the ticket (or ADMIN).
+        Returns 404 if ticket not found, 403 if not authorized.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: ticketId
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "7d4831fd-2dca-41d6-8914-5d9d9d4d3bcb"
+      responses:
+        '200':
+          description: Activity logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ActivityLog'
+        '401':
+          description: Unauthorized - missing or invalid JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a member of the ticket's squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /activities/squads/{squadId}:
+    get:
+      tags: [Activity]
+      summary: Get activity logs for a squad
+      description: |
+        Returns all activity logs associated with the specified squad.
+        **Authorization:** The caller must be a member of the squad (or ADMIN).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: squadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+      responses:
+        '200':
+          description: Activity logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ActivityLog'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a member of this squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /activities/sprints/{sprintId}:
+    get:
+      tags: [Activity]
+      summary: Get activity logs for a sprint
+      description: |
+        Returns all activity logs associated with the specified sprint.
+        **Authorization:** The caller must be a member of the squad that owns the sprint (or ADMIN).
+        Returns 404 if sprint not found, 403 if not authorized.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sprintId
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "c231a116-e5ef-49aa-b0cc-7aeb7dd69f79"
+      responses:
+        '200':
+          description: Activity logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ActivityLog'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a member of the sprint's squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Sprint not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ============================================================
+  # DASHBOARD
+  # ============================================================
+
+  /dashboard/squad/{squadId}:
+    get:
+      tags: [Dashboard]
+      summary: Get squad dashboard summary
+      description: |
+        Returns a comprehensive summary for the squad including:
+        - Ticket counts by status
+        - Ticket counts by priority
+        - Sprint summary
+        - Active sprint details
+        - Member count
+        **Authorization:** Must be a member of the squad (or ADMIN).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: squadId
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "8e2b6d7f-0af2-4d19-bf31-f886f80d29d1"
+      responses:
+        '200':
+          description: Squad dashboard retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          squad:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              name:
+                                type: string
+                              memberCount:
+                                type: integer
+                          tickets:
+                            type: object
+                            description: Ticket counts by status
+                            properties:
+                              total:
+                                type: integer
+                              todo:
+                                type: integer
+                              inProgress:
+                                type: integer
+                              done:
+                                type: integer
+                          priority:
+                            type: object
+                            description: Ticket counts by priority
+                            properties:
+                              low:
+                                type: integer
+                              medium:
+                                type: integer
+                              high:
+                                type: integer
+                              urgent:
+                                type: integer
+                          sprints:
+                            type: object
+                            description: Sprint counts by status
+                          activeSprint:
+                            type: object
+                            nullable: true
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              name:
+                                type: string
+                              status:
+                                type: string
+                              startDate:
+                                type: string
+                                format: date-time
+                              endDate:
+                                type: string
+                                format: date-time
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a member of this squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Squad not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /dashboard/sprint/{sprintId}:
+    get:
+      tags: [Dashboard]
+      summary: Get sprint dashboard summary
+      description: |
+        Returns a summary for a specific sprint including:
+        - Ticket counts by status
+        - Overall progress percentage (done/total)
+        **Authorization:** Must be a member of the sprint's squad (or ADMIN).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sprintId
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "c231a116-e5ef-49aa-b0cc-7aeb7dd69f79"
+      responses:
+        '200':
+          description: Sprint dashboard retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          sprint:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              name:
+                                type: string
+                              status:
+                                type: string
+                                enum: [PLANNED, ACTIVE, COMPLETED]
+                              startDate:
+                                type: string
+                                format: date-time
+                              endDate:
+                                type: string
+                                format: date-time
+                          tickets:
+                            type: object
+                            properties:
+                              total:
+                                type: integer
+                              todo:
+                                type: integer
+                              inProgress:
+                                type: integer
+                              done:
+                                type: integer
+                          progressPercentage:
+                            type: integer
+                            example: 67
+                            description: "Percentage of tickets in DONE status"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a member of the sprint's squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Sprint not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /github/connection:
+    get:
+      tags:
+        - GitHub
+      summary: Get GitHub connection status
+      description: |
+        Returns safe, public information about the authenticated user's GitHub connection.
+        **Never returns** access tokens, refresh tokens, or client secrets.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Connection status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: GitHub connection found
+                  data:
+                    type: object
+                    properties:
+                      connected:
+                        type: boolean
+                        example: true
+                      github:
+                        type: object
+                        description: Only present when connected is true
+                        properties:
+                          id:
+                            type: string
+                            description: GitHub numeric user ID
+                            example: "11223344"
+                          username:
+                            type: string
+                            description: GitHub login/username
+                            example: "octocat"
+                          avatarUrl:
+                            type: string
+                            format: uri
+                            description: GitHub avatar URL (public, derived from GitHub user ID)
+                            example: "https://avatars.githubusercontent.com/u/11223344"
+        '401':
+          description: Unauthorized - missing or invalid DEVAI JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - GitHub
+      summary: Remove GitHub connection
+      description: |
+        Revokes the stored GitHub OAuth token (best-effort via GitHub API) and
+        removes the local GitHub connection record.
+
+        **Does NOT** delete the DEVAI user account or the `user_auth_accounts` identity record.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: GitHub connection removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: GitHub connection removed successfully
+        '401':
+          description: Unauthorized - missing or invalid DEVAI JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No GitHub connection found for this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /github/organizations:
+    get:
+      tags:
+        - GitHub
+      summary: List GitHub organizations
+      description: |
+        Returns all GitHub organizations accessible to the authenticated user's
+        connected GitHub account. Requires a valid GitHub connection.
+        **Never** accepts or returns a GitHub access token.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Organizations fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Organizations fetched successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1234567
+                        login:
+                          type: string
+                          example: my-company
+                        avatarUrl:
+                          type: string
+                          format: uri
+                          example: https://avatars.githubusercontent.com/u/1234567
+                        description:
+                          type: string
+                          nullable: true
+                          example: We build great software
+        '401':
+          description: Unauthorized - missing or invalid DEVAI JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: GitHub access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No GitHub connection found for this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: GitHub API request timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /github/organizations/{organization}/repos:
+    get:
+      tags:
+        - GitHub
+      summary: List organization repositories
+      description: |
+        Returns repositories within the specified GitHub organization accessible
+        to the authenticated user's connected GitHub account.
+        **Never** accepts or returns a GitHub access token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization
+          in: path
+          required: true
+          description: GitHub organization login name
+          schema:
+            type: string
+            example: my-company
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, public, private, forks, sources, member]
+            default: all
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [created, updated, pushed, full_name]
+            default: updated
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Repositories fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Repositories fetched successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 98765432
+                        name:
+                          type: string
+                          example: backend-api
+                        fullName:
+                          type: string
+                          example: my-company/backend-api
+                        description:
+                          type: string
+                          nullable: true
+                        private:
+                          type: boolean
+                          example: true
+                        fork:
+                          type: boolean
+                          example: false
+                        language:
+                          type: string
+                          nullable: true
+                          example: JavaScript
+                        defaultBranch:
+                          type: string
+                          example: main
+                        stargazersCount:
+                          type: integer
+                          example: 42
+                        forksCount:
+                          type: integer
+                          example: 7
+                        openIssuesCount:
+                          type: integer
+                          example: 3
+                        visibility:
+                          type: string
+                          example: private
+                        htmlUrl:
+                          type: string
+                          format: uri
+                        pushedAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                        createdAt:
+                          type: string
+                          format: date-time
+        '400':
+          description: Invalid organization name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - missing or invalid DEVAI JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: GitHub access denied for this organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Organization not found or no GitHub connection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: GitHub API request timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /github/repositories:
+    get:
+      tags:
+        - GitHub
+      summary: List accessible repositories
+      description: |
+        Returns repositories accessible to the authenticated GitHub user.
+        Supports optional filtering by organization and visibility, with pagination.
+        **Never** accepts or returns a GitHub access token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization
+          in: query
+          required: false
+          description: Filter by GitHub organization login name
+          schema:
+            type: string
+            example: my-company
+        - name: visibility
+          in: query
+          required: false
+          description: Visibility filter
+          schema:
+            type: string
+            enum: [all, public, private]
+            default: all
+        - name: page
+          in: query
+          required: false
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: perPage
+          in: query
+          required: false
+          description: Number of results per page (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+      responses:
+        '200':
+          description: Repositories fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Repositories fetched successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 10001
+                        name:
+                          type: string
+                          example: backend-api
+                        fullName:
+                          type: string
+                          example: octocat/backend-api
+                        owner:
+                          type: string
+                          example: octocat
+                        private:
+                          type: boolean
+                          example: false
+                        defaultBranch:
+                          type: string
+                          example: main
+                        htmlUrl:
+                          type: string
+                          format: uri
+                          example: https://github.com/octocat/backend-api
+                        description:
+                          type: string
+                          nullable: true
+                          example: Node.js API
+                        language:
+                          type: string
+                          nullable: true
+                          example: JavaScript
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 30
+                      perPage:
+                        type: integer
+                        example: 30
+                      total:
+                        type: integer
+                        example: 1
+                      totalPages:
+                        type: integer
+                        example: 1
+                      hasNextPage:
+                        type: boolean
+                        example: false
+                      hasPreviousPage:
+                        type: boolean
+                        example: false
+        '400':
+          description: Validation failed (invalid query parameters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - missing or invalid DEVAI JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: GitHub access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No GitHub connection found for this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: GitHub API request timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /github/repositories/{owner}/{repo}:
+    get:
+      tags:
+        - GitHub
+      summary: Get repository details
+      description: |
+        Returns details for a single repository.
+        **Never** accepts or returns a GitHub access token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          description: GitHub owner or organization login
+          schema:
+            type: string
+            example: octocat
+        - name: repo
+          in: path
+          required: true
+          description: GitHub repository name
+          schema:
+            type: string
+            example: Hello-World
+      responses:
+        '200':
+          description: Repository fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Repository fetched successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1296269
+                      name:
+                        type: string
+                        example: Hello-World
+                      fullName:
+                        type: string
+                        example: octocat/Hello-World
+                      owner:
+                        type: string
+                        example: octocat
+                      private:
+                        type: boolean
+                        example: false
+                      defaultBranch:
+                        type: string
+                        example: main
+                      htmlUrl:
+                        type: string
+                        format: uri
+                        example: https://github.com/octocat/Hello-World
+                      description:
+                        type: string
+                        nullable: true
+                        example: This is your first repo!
+                      language:
+                        type: string
+                        nullable: true
+                        example: JavaScript
+                      createdAt:
+                        type: string
+                        format: date-time
+                      updatedAt:
+                        type: string
+                        format: date-time
+        '400':
+          description: Invalid owner or repository parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - missing or invalid DEVAI JWT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: GitHub access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Repository not found or no GitHub connection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '504':
+          description: GitHub API request timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /squads/{squadId}/github-repositories:
+    post:
+      tags:
+        - Squad
+        - GitHub
+      summary: Link a GitHub repository to a squad
+      description: |
+        Links a GitHub repository to a DEVAI squad.
+        Authoritative repository metadata is fetched directly from the GitHub API using the authenticated user's GitHub connection.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: squadId
+          in: path
+          required: true
+          description: DEVAI Squad UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [githubRepositoryId, owner, repo]
+              properties:
+                githubRepositoryId:
+                  type: integer
+                  example: 123456
+                owner:
+                  type: string
+                  example: company
+                repo:
+                  type: string
+                  example: dev4ai
+      responses:
+        '201':
+          description: Repository linked to squad successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Repository linked to squad successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      squadId:
+                        type: string
+                        format: uuid
+                      githubRepositoryId:
+                        type: string
+                        example: "123456"
+                      githubRepositoryName:
+                        type: string
+                        example: dev4ai
+                      githubOwner:
+                        type: string
+                        example: company
+                      githubFullName:
+                        type: string
+                        example: company/dev4ai
+                      githubUrl:
+                        type: string
+                        format: uri
+                        example: https://github.com/company/dev4ai
+                      createdAt:
+                        type: string
+                        format: date-time
+                      updatedAt:
+                        type: string
+                        format: date-time
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a member of this squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Squad not found or GitHub repository not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Repository already linked to this squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      tags:
+        - Squad
+        - GitHub
+      summary: List GitHub repositories linked to a squad
+      description: |
+        Returns all GitHub repositories linked to the specified squad.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: squadId
+          in: path
+          required: true
+          description: DEVAI Squad UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Linked repositories fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Linked repositories fetched successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        squadId:
+                          type: string
+                          format: uuid
+                        githubRepositoryId:
+                          type: string
+                          example: "123456"
+                        githubRepositoryName:
+                          type: string
+                          example: dev4ai
+                        githubOwner:
+                          type: string
+                          example: company
+                        githubFullName:
+                          type: string
+                          example: company/dev4ai
+                        githubUrl:
+                          type: string
+                          format: uri
+                          example: https://github.com/company/dev4ai
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a member of this squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Squad not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /squads/{squadId}/github-repositories/{id}:
+    delete:
+      tags:
+        - Squad
+        - GitHub
+      summary: Unlink a GitHub repository from a squad
+      description: |
+        Removes the relationship between a squad and a linked GitHub repository.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: squadId
+          in: path
+          required: true
+          description: DEVAI Squad UUID
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          description: Squad GitHub Repository Link UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Repository unlinked from squad successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Repository unlinked from squad successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden - not a member of this squad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Squad or linked repository not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /github/repos/{owner}/{repo}/issues:
+    get:
+      tags:
+        - GitHub
+      summary: List GitHub repository issues
+      description: Lists issues for a GitHub repository (excluding pull requests).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: perPage
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Issues fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+
+  /github/repos/{owner}/{repo}/issues/import:
+    post:
+      tags:
+        - GitHub
+        - Ticket
+      summary: Import GitHub issue as a DEVAI ticket
+      description: Imports an issue from a squad-linked GitHub repository into a DEVAI ticket.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [issueNumber, squadId, sprintId]
+              properties:
+                issueNumber:
+                  type: integer
+                  example: 42
+                squadId:
+                  type: string
+                  format: uuid
+                sprintId:
+                  type: string
+                  format: uuid
+                priority:
+                  type: string
+                  enum: [LOW, MEDIUM, HIGH, URGENT]
+                  default: MEDIUM
+      responses:
+        '201':
+          description: GitHub issue imported as ticket successfully
+        '400':
+          description: Invalid request or unlinked repository
+        '404':
+          description: Issue or squad not found
+        '409':
+          description: GitHub issue already linked to a ticket
+
+  /github/tickets/{ticketId}/issue:
+    post:
+      tags:
+        - GitHub
+        - Ticket
+      summary: Create GitHub issue from DEVAI ticket
+      description: Creates a new GitHub issue from an existing DEVAI ticket and establishes the link.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  type: string
+                repo:
+                  type: string
+                repositoryId:
+                  type: string
+      responses:
+        '201':
+          description: GitHub issue created from ticket successfully
+        '400':
+          description: Invalid repository or not linked to squad
+        '404':
+          description: Ticket not found
+        '409':
+          description: Ticket already linked to a GitHub issue
+
+  /tickets/{ticketId}/github-issue:
+    get:
+      tags:
+        - Ticket
+        - GitHub
+      summary: Get linked GitHub issue for a ticket
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Linked GitHub issue fetched successfully
+        '404':
+          description: No linked GitHub issue found for this ticket
+
+    delete:
+      tags:
+        - Ticket
+        - GitHub
+      summary: Unlink GitHub issue from a ticket
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: GitHub issue unlinked from ticket successfully
+        '404':
+          description: No linked GitHub issue found for this ticket
+
+  /github/repos/{owner}/{repo}/pulls:
+    get:
+      tags:
+        - GitHub
+      summary: List pull requests in repository
+      description: Returns pull requests for a repository accessible to the authenticated user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: perPage
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Pull requests fetched successfully
+        '401':
+          description: Unauthorized
+        '404':
+          description: Repository not found
+
+  /github/repos/{owner}/{repo}/pulls/{pullNumber}:
+    get:
+      tags:
+        - GitHub
+      summary: Get pull request details
+      description: Returns normalized details for a specific pull request.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pullNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pull request details fetched successfully
+        '404':
+          description: Pull request not found
+
+  /github/repos/{owner}/{repo}/pulls/{pullNumber}/files:
+    get:
+      tags:
+        - GitHub
+      summary: Get changed files in pull request
+      description: Returns list of changed files with patch and additions/deletions.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pullNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Changed files fetched successfully
+        '404':
+          description: Pull request not found
+
+  /github/repos/{owner}/{repo}/pulls/{pullNumber}/commits:
+    get:
+      tags:
+        - GitHub
+      summary: Get commits in pull request
+      description: Returns commits associated with the pull request.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pullNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Commits fetched successfully
+        '404':
+          description: Pull request not found
+
+  /github/repos/{owner}/{repo}/pulls/{pullNumber}/diff:
+    get:
+      tags:
+        - GitHub
+      summary: Get pull request diff and changes normalized for AI review
+      description: Returns raw unified diff, file patches, commit log, and stats structured for AI code review.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pullNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pull request diff and changes fetched successfully
+        '404':
+          description: Pull request not found
+
+  /tickets/{ticketId}/github-prs:
+    get:
+      tags:
+        - Ticket
+        - GitHub
+      summary: Get linked GitHub pull requests for ticket
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Linked pull requests fetched successfully
+
+  /tickets/{ticketId}/github-prs/link:
+    post:
+      tags:
+        - Ticket
+        - GitHub
+      summary: Link GitHub pull request to ticket
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pullNumber]
+              properties:
+                pullNumber:
+                  type: integer
+                  example: 101
+                owner:
+                  type: string
+                  example: company
+                repo:
+                  type: string
+                  example: dev4ai
+      responses:
+        '201':
+          description: GitHub pull request linked successfully
+        '400':
+          description: Repository not linked to squad or invalid request
+        '403':
+          description: Forbidden (no access to squad/ticket)
+        '404':
+          description: Ticket or pull request not found
+        '409':
+          description: Pull request already linked to this ticket
+
+  /github/webhooks:
+    post:
+      tags:
+        - GitHub
+      summary: Handle incoming GitHub webhooks
+      description: Production-safe GitHub webhook receiver. Authenticates using X-Hub-Signature-256 HMAC-SHA256 verification and ensures idempotency using X-GitHub-Delivery. Does not require DEVAI JWT authentication.
+      parameters:
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          schema:
+            type: string
+          description: HMAC-SHA256 signature of request payload
+        - name: X-GitHub-Delivery
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Unique delivery GUID from GitHub
+        - name: X-GitHub-Event
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Name of GitHub event (e.g. issues, pull_request, push)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processed successfully or already handled
+        '400':
+          description: Missing signature / delivery headers or malformed payload
+        '401':
+          description: Invalid webhook HMAC signature

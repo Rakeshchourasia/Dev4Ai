@@ -4,9 +4,10 @@ export const getPagination = (query = {}) => {
     1
   );
 
+  const rawLimit = query.limit ?? query.perPage;
   const limit = Math.min(
     Math.max(
-      Number(query.limit) || 10,
+      Number(rawLimit) || 10,
       1
     ),
     100
@@ -34,6 +35,7 @@ export const buildPagination = (
   return {
     page,
     limit,
+    perPage: limit,
     total,
     totalPages,
 

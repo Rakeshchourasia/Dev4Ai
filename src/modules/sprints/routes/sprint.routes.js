@@ -32,7 +32,7 @@ router.post(
 
 // GET SPRINTS BY SQUAD
 router.get(
-  "/squad/:squadId",
+  ["/squad/:squadId", "/squads/:squadId"],
   authenticate,
   squadAccess("squadId"),
   validateQuery(sprintQuerySchema),

@@ -30,7 +30,7 @@ export const users = pgTable(
 
     password: varchar("password", {
       length: 255,
-    }).notNull(),
+    }),
 
     role: userRoleEnum("role")
       .default("MEMBER")

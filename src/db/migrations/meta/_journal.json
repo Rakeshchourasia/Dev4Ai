@@ -78,6 +78,55 @@
       "when": 1788331940436,
       "tag": "0010_goofy_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788803332986,
+      "tag": "0011_quiet_frightful_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788848976664,
+      "tag": "0012_third_centennial",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789457895491,
+      "tag": "0013_common_santa_claus",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789461078229,
+      "tag": "0014_large_black_panther",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1789462327560,
+      "tag": "0015_short_hobgoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789464861290,
+      "tag": "0016_cynical_the_liberteens",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789466217113,
+      "tag": "0017_stiff_zzzax",
+      "breakpoints": true
     }
   ]
 }

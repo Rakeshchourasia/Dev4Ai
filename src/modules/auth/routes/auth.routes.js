@@ -13,4 +13,6 @@ router.get("/me", authenticate, authController.me);
 router.post("/refresh", authRateLimiter, validate(refreshSchema), authController.refresh);
 router.post("/logout", authRateLimiter, validate(refreshSchema), authController.logout);
 router.post("/register", authRateLimiter, validate(registerSchema), authController.register);
+router.get("/github", authRateLimiter, authController.githubLogin);
+router.get("/github/callback", authRateLimiter, authController.githubCallback);
 export default router;

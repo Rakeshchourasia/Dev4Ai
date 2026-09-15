@@ -1,5 +1,8 @@
 
 import authRepository from "../repositories/auth.repository.js";
+import userAuthAccountRepository from "../repositories/userAuthAccount.repository.js";
+import activityService from "../../activity/services/activity.service.js";
+import { db } from "../../../db/index.js";
 import AppError from "../../../shared/errors/AppError.js";
 
 import {
@@ -45,6 +48,13 @@ class AuthService {
     }
 
     // 4. Compare password
+    if (!user.password) {
+      throw new AppError(
+        "Password login is not enabled for this account. Please log in with GitHub.",
+        400
+      );
+    }
+
     const passwordValid =
       await comparePassword(
         userData.password,
@@ -240,6 +250,149 @@ class AuthService {
     } = user;
 
     return safeUser;
+  }
+
+  // ==========================================
+  // LOGIN OR CREATE WITH OAUTH PROVIDER
+  // ==========================================
+
+  async loginOrCreateWithProvider({
+    provider,
+    providerAccountId,
+    email,
+    name,
+    avatarUrl,
+  }) {
+    if (!provider || !providerAccountId || !email) {
+      throw new AppError("Provider, account ID, and email are required", 400);
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 1. Transactionally find/link/create user
+    const resolvedUser = await db.transaction(async (tx) => {
+      // Step A: Check if provider account already exists
+      const existingAccount =
+        await userAuthAccountRepository.findByProviderAccount(
+          provider,
+          providerAccountId,
+          tx
+        );
+
+      if (existingAccount) {
+        const user = await authRepository.findById(existingAccount.userId, tx);
+        if (!user) {
+          throw new AppError("Linked user account not found", 404);
+        }
+
+        await activityService.log(
+          {
+            userId: user.id,
+            action: "GITHUB_LOGIN",
+            entityType: "USER",
+            entityId: user.id,
+            description: `User "${user.email}" logged in via ${provider}`,
+          },
+          tx
+        );
+
+        return user;
+      }
+
+      // Step B: Check if a local user exists with the verified provider email
+      const existingUserByEmail = await authRepository.findByEmail(
+        normalizedEmail,
+        tx
+      );
+
+      if (existingUserByEmail) {
+        // Link existing user to this provider
+        await userAuthAccountRepository.create(
+          {
+            userId: existingUserByEmail.id,
+            provider,
+            providerAccountId,
+            providerEmail: normalizedEmail,
+          },
+          tx
+        );
+
+        await activityService.log(
+          {
+            userId: existingUserByEmail.id,
+            action: "GITHUB_ACCOUNT_LINKED",
+            entityType: "USER",
+            entityId: existingUserByEmail.id,
+            description: `Linked ${provider} account (${providerAccountId}) to user "${existingUserByEmail.email}"`,
+          },
+          tx
+        );
+
+        return existingUserByEmail;
+      }
+
+      // Step C: Create new user (Role is ALWAYS MEMBER, password is null)
+      const newUser = await authRepository.createUser(
+        {
+          name: name?.trim() || normalizedEmail.split("@")[0],
+          email: normalizedEmail,
+          password: null,
+          role: "MEMBER",
+        },
+        tx
+      );
+
+      await userAuthAccountRepository.create(
+        {
+          userId: newUser.id,
+          provider,
+          providerAccountId,
+          providerEmail: normalizedEmail,
+        },
+        tx
+      );
+
+      await activityService.log(
+        {
+          userId: newUser.id,
+          action: "GITHUB_LOGIN",
+          entityType: "USER",
+          entityId: newUser.id,
+          description: `Created new user "${newUser.email}" and logged in via ${provider}`,
+        },
+        tx
+      );
+
+      return newUser;
+    });
+
+    // 2. Generate standard DEVAI access and refresh tokens
+    const accessToken = generateAccessToken({
+      id: resolvedUser.id,
+      email: resolvedUser.email,
+      role: resolvedUser.role,
+    });
+
+    const refreshToken = generateRefreshToken({
+      id: resolvedUser.id,
+      email: resolvedUser.email,
+      role: resolvedUser.role,
+    });
+
+    // 3. Store refresh token in existing storage
+    await authRepository.createRefreshToken({
+      userId: resolvedUser.id,
+      token: refreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+
+    const { password, ...safeUser } = resolvedUser;
+
+    return {
+      user: safeUser,
+      accessToken,
+      refreshToken,
+    };
   }
 }
 

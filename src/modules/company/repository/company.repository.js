@@ -1,32 +1,27 @@
-import { eq } from "drizzle-orm";
+import { eq, count, desc } from "drizzle-orm";
 import { db } from "../../../db/index.js";
 import { companies } from "../../../db/schema/companies.schema.js";
-import { count } from "drizzle-orm";
+
 class CompanyRepository {
-async findAll({
-  limit,
-  offset,
-  companyId,
-} = {}) {
-  const conditions = [];
+  async findAll({
+    limit,
+    offset,
+  } = {}) {
+    let query = db
+      .select()
+      .from(companies)
+      .orderBy(desc(companies.createdAt));
 
-  if (companyId) {
-    conditions.push(
-      eq(squads.companyId, companyId)
-    );
+    if (limit !== undefined) {
+      query = query.limit(limit);
+    }
+
+    if (offset !== undefined) {
+      query = query.offset(offset);
+    }
+
+    return await query;
   }
-
-  return await db
-    .select()
-    .from(squads)
-    .where(
-      conditions.length
-        ? and(...conditions)
-        : undefined
-    )
-    .limit(limit)
-    .offset(offset);
-}
 
   async findById(id) {
     const result = await db
@@ -73,31 +68,18 @@ async findAll({
 
     return result[0] || null;
   }
- async countAll({ companyId } = {}) {
-  const conditions = [];
 
-  if (companyId) {
-    conditions.push(
-      eq(squads.companyId, companyId)
+  async countAll() {
+    const result = await db
+      .select({
+        count: count(),
+      })
+      .from(companies);
+
+    return Number(
+      result[0]?.count || 0
     );
   }
-
-  const result = await db
-    .select({
-      count: count(),
-    })
-    .from(squads)
-    .where(
-      conditions.length
-        ? and(...conditions)
-        : undefined
-    );
-
-  return Number(
-    result[0]?.count || 0
-  );
-}
-
 }
 
 export default new CompanyRepository();

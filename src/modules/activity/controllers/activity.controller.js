@@ -3,10 +3,10 @@ import activityService from "../services/activity.service.js";
 class ActivityController {
   async getTicketActivity(req, res, next) {
     try {
-      const activities =
-        await activityService.getTicketActivity(
-          req.params.ticketId
-        );
+      const activities = await activityService.getTicketActivity(
+        req.params.ticketId,
+        req.user
+      );
 
       return res.status(200).json({
         success: true,
@@ -19,10 +19,9 @@ class ActivityController {
 
   async getSquadActivity(req, res, next) {
     try {
-      const activities =
-        await activityService.getSquadActivity(
-          req.params.squadId
-        );
+      const activities = await activityService.getSquadActivity(
+        req.params.squadId
+      );
 
       return res.status(200).json({
         success: true,
@@ -35,10 +34,10 @@ class ActivityController {
 
   async getSprintActivity(req, res, next) {
     try {
-      const activities =
-        await activityService.getSprintActivity(
-          req.params.sprintId
-        );
+      const activities = await activityService.getSprintActivity(
+        req.params.sprintId,
+        req.user
+      );
 
       return res.status(200).json({
         success: true,

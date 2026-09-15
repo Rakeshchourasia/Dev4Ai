@@ -40,6 +40,29 @@ class SprintRepository {
   }
 
   // ==========================================
+  // FIND ACTIVE BY SQUAD
+  // ==========================================
+
+  async findActiveBySquadId(
+    squadId,
+    database = db
+  ) {
+    const result =
+      await database
+        .select()
+        .from(sprints)
+        .where(
+          and(
+            eq(sprints.squadId, squadId),
+            eq(sprints.status, "ACTIVE")
+          )
+        )
+        .limit(1);
+
+    return result[0] || null;
+  }
+
+  // ==========================================
   // FIND ALL BY SQUAD
   // ==========================================
 

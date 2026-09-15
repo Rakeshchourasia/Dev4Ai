@@ -21,6 +21,13 @@ import {
   updateTicketStatusSchema,
 } from "../../../validation/ticket-status.schema.js";
 
+import { validateParams } from "../../../shared/middlewares/validateParams.js";
+import { ticketIdParamSchema } from "../../../validation/github-issue.schema.js";
+import { linkTicketGithubPrSchema } from "../../../validation/github-pr.schema.js";
+import githubIssueController from "../../github/controllers/githubIssue.controller.js";
+import githubPrController from "../../github/controllers/githubPr.controller.js";
+
+
 const router = Router();
 
 // CREATE
@@ -33,7 +40,7 @@ router.post(
 
 // BY SQUAD
 router.get(
-  "/squad/:squadId",
+  ["/squad/:squadId", "/squads/:squadId"],
   authenticate,
   squadAccess("squadId"),
   validateQuery(ticketQuerySchema),
@@ -41,7 +48,7 @@ router.get(
 );
 // BY SPRINT
 router.get(
-  "/sprint/:sprintId",
+  ["/sprint/:sprintId", "/sprints/:sprintId"],
   authenticate,
   validateQuery(ticketQuerySchema),
   ticketController.getAllBySprint
@@ -75,4 +82,41 @@ router.patch(
   ticketController.updateStatus
 );
 
-export default router;
+// ==========================================
+// GITHUB ISSUE LINKING
+// ==========================================
+
+router.get(
+  "/:ticketId/github-issue",
+  authenticate,
+  validateParams(ticketIdParamSchema),
+  githubIssueController.getLinkedIssue
+);
+
+router.delete(
+  "/:ticketId/github-issue",
+  authenticate,
+  validateParams(ticketIdParamSchema),
+  githubIssueController.unlinkIssue
+);
+
+// ==========================================
+// GITHUB PULL REQUEST LINKING
+// ==========================================
+
+router.get(
+  "/:ticketId/github-prs",
+  authenticate,
+  validateParams(ticketIdParamSchema),
+  githubPrController.getTicketPrs
+);
+
+router.post(
+  "/:ticketId/github-prs/link",
+  authenticate,
+  validateParams(ticketIdParamSchema),
+  validate(linkTicketGithubPrSchema),
+  githubPrController.linkPrToTicket
+);
+
+export default router;

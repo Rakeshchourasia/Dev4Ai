@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "seed": "node src/db/seed.js",
+    "test": "node tests/verify-all.js && node tests/github-oauth.test.js && node tests/github-connection.test.js && node tests/github-orgs.test.js && node tests/github-repos.test.js && node tests/squad-github-repos.test.js && node tests/github-issues.test.js && node tests/github-prs.test.js && node tests/github-webhooks.test.js",
+    "test:oauth": "node tests/github-oauth.test.js",
     "db:generate": "drizzle-kit generate --config=drizzle.config.js",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.js",
     "db:studio": "drizzle-kit studio --config=drizzle.config.js"

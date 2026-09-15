@@ -36,19 +36,31 @@ export const activityLogs = pgTable(
 
     description: text("description"),
 
+    // ==========================================
+    // AUDIT RETENTION DESIGN
+    //
+    // ticketId / squadId / sprintId are nullable
+    // soft-references: SET NULL on delete so that
+    // audit history survives entity deletion.
+    //
+    // entityType + entityId + description always
+    // preserve the historical context even after
+    // the entity is gone.
+    // ==========================================
+
     ticketId: uuid("ticket_id")
       .references(() => tickets.id, {
-        onDelete: "cascade",
+        onDelete: "set null",
       }),
 
     squadId: uuid("squad_id")
       .references(() => squads.id, {
-        onDelete: "cascade",
+        onDelete: "set null",
       }),
 
     sprintId: uuid("sprint_id")
       .references(() => sprints.id, {
-        onDelete: "cascade",
+        onDelete: "set null",
       }),
 
     createdAt: timestamp("created_at")
