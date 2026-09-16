@@ -11,7 +11,7 @@ export const ticketQuerySchema = z.object({
     .number()
     .int()
     .min(1)
-    .max(100)
+    .max(200)
     .default(10),
 
   status: z

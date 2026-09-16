@@ -8,9 +8,15 @@ export default function errorHandler(err, req, res, next) {
   // DETERMINE STATUS CODE
   // ==========================================
 
-  let statusCode = err.statusCode || 500;
+  let statusCode = err.statusCode || err.status || 500;
   let message = err.message || "Internal server error";
   let errors = err.errors || null;
+
+  // Handle body parser JSON syntax errors (malformed payload)
+  if (err instanceof SyntaxError && "body" in err) {
+    statusCode = 400;
+    message = "Malformed payload";
+  }
 
   // ==========================================
   // HANDLE ZOD ERRORS

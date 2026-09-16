@@ -45,8 +45,13 @@ export function verifyGithubWebhook(req, res, next) {
       throw new AppError("Invalid GitHub webhook signature", 401);
     }
 
-    // Validate payload is well-formed object
-    if (!req.body || typeof req.body !== "object") {
+    // Validate payload is well-formed non-empty object
+    if (
+      !req.body ||
+      typeof req.body !== "object" ||
+      Array.isArray(req.body) ||
+      Object.keys(req.body).length === 0
+    ) {
       throw new AppError("Malformed webhook payload", 400);
     }
 

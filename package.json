@@ -7,7 +7,9 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node src/db/seed.js",
-    "test": "node tests/verify-all.js && node tests/github-oauth.test.js && node tests/github-connection.test.js && node tests/github-orgs.test.js && node tests/github-repos.test.js && node tests/squad-github-repos.test.js && node tests/github-issues.test.js && node tests/github-prs.test.js && node tests/github-webhooks.test.js",
+    "test": "node tests/verify-all.js && node tests/github-oauth.test.js && node tests/github-connection.test.js && node tests/github-orgs.test.js && node tests/github-repos.test.js && node tests/squad-github-repos.test.js && node tests/github-issues.test.js && node tests/github-prs.test.js && node tests/github-webhooks.test.js && node tests/ui-smoke.test.js",
+    "test:all": "node tests/run-all.js",
+    "test:coverage": "c8 --include=src/** --exclude=src/db/migrations/** --exclude=src/db/seed.js --reporter=text --reporter=html node tests/run-all.js",
     "test:oauth": "node tests/github-oauth.test.js",
     "db:generate": "drizzle-kit generate --config=drizzle.config.js",
     "db:migrate": "drizzle-kit migrate --config=drizzle.config.js",
@@ -32,6 +34,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "c8": "^12.0.0",
     "drizzle-kit": "^0.31.10",
     "nodemon": "^3.1.14"
   }

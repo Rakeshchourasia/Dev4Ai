@@ -103,6 +103,17 @@ class GithubWebhookService {
         sprintId: ticket.sprintId,
         description: `GitHub issue #${issue.number} was reopened; ticket status updated to TODO`,
       });
+    } else if (action === "opened") {
+      await activityService.log({
+        userId: ticket.createdBy,
+        action: "GITHUB_ISSUE_OPENED",
+        entityType: "TICKET",
+        entityId: ticket.id,
+        ticketId: ticket.id,
+        squadId: ticket.squadId,
+        sprintId: ticket.sprintId,
+        description: `GitHub issue #${issue.number} was opened`,
+      });
     }
   }
 
@@ -126,7 +137,18 @@ class GithubWebhookService {
       const ticket = await ticketRepository.findById(mapping.ticketId);
       if (!ticket) continue;
 
-      if (action === "closed" && pr.merged) {
+      if (action === "opened") {
+        await activityService.log({
+          userId: ticket.createdBy,
+          action: "GITHUB_PR_OPENED",
+          entityType: "TICKET",
+          entityId: ticket.id,
+          ticketId: ticket.id,
+          squadId: ticket.squadId,
+          sprintId: ticket.sprintId,
+          description: `GitHub PR #${pr.number} was opened`,
+        });
+      } else if (action === "closed" && pr.merged) {
         await ticketRepository.update(ticket.id, { status: "DONE" });
         await activityService.log({
           userId: ticket.createdBy,

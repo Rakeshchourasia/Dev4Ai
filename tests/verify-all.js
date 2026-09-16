@@ -404,6 +404,33 @@ async function runAllTests() {
       assert.equal(res.body.data.isMember, true);
     });
 
+    await test("GET /squads/companies/:companyId returns squads for company", async () => {
+      const res = await request(`/squads/companies/${testCompanyId}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(res.status, 200);
+      assert.ok(Array.isArray(res.body.data));
+      assert.ok(res.body.data.some((s) => s.id === squadAId));
+    });
+
+    await test("GET /squads/:id returns squad details", async () => {
+      const res = await request(`/squads/${squadAId}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.data.id, squadAId);
+    });
+
+    await test("ADMIN updates squad via PATCH /squads/:id", async () => {
+      const res = await request(`/squads/${squadAId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ name: `Squad Alpha Updated ${uniqueTimestamp}` }),
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.data.name, `Squad Alpha Updated ${uniqueTimestamp}`);
+    });
+
     await test("Squad Isolation: Member of Squad B cannot access Squad A tickets (403 Forbidden)", async () => {
       const res = await request(`/tickets/squad/${squadAId}`, {
         headers: { Authorization: `Bearer ${otherMemberToken}` },
@@ -531,6 +558,33 @@ async function runAllTests() {
       });
       assert.equal(res.status, 200);
       assert.equal(res.body.data.status, "ACTIVE");
+    });
+
+    await test("GET /sprints/squads/:squadId lists sprints for squad", async () => {
+      const res = await request(`/sprints/squads/${squadAId}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(res.status, 200);
+      assert.ok(Array.isArray(res.body.data));
+      assert.ok(res.body.data.some((s) => s.id === sprint1Id));
+    });
+
+    await test("GET /sprints/:id returns sprint details", async () => {
+      const res = await request(`/sprints/${sprint1Id}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.data.id, sprint1Id);
+    });
+
+    await test("ADMIN updates sprint via PATCH /sprints/:id", async () => {
+      const res = await request(`/sprints/${sprint2Id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ name: "Sprint 2 Updated Name" }),
+      });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.data.name, "Sprint 2 Updated Name");
     });
 
     // ========================================================

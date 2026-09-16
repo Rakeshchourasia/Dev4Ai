@@ -40,7 +40,11 @@ const swaggerDocument = YAML.parse(
 
 app.disable("x-powered-by");
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: { policy: "unsafe-none" },
+  })
+);
 
 app.use(
   cors({
@@ -116,10 +120,16 @@ app.get("/health", async (req, res) => {
 });
 
 // ==========================================
+// STATIC FILES & UI
+// ==========================================
+
+app.use(express.static(path.resolve(__dirname, "../public")));
+
+// ==========================================
 // SWAGGER
 // ==========================================
 
-app.get("/", (req, res) => {
+app.get("/api", (req, res) => {
   res.send("Welcome to Dev4AI 🚀");
 });
 

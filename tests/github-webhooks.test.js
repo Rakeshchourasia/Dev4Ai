@@ -283,6 +283,63 @@ async function runWebhookTests() {
       assert.equal(res.status, 400);
     });
 
+    await test("Malformed JSON payload rejects with 400", async () => {
+      const malformedStr = '{"action": "opened", "invalid_json": ';
+      const sig = signPayload(malformedStr);
+      const res = await fetch(`${baseUrl}/github/webhooks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "issues",
+          "X-GitHub-Delivery": crypto.randomUUID(),
+          "X-Hub-Signature-256": sig,
+        },
+        body: malformedStr,
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.equal(data.success, false);
+      assert.equal(data.message, "Malformed payload");
+    });
+
+    await test("Array payload rejects with 400", async () => {
+      const arrayStr = JSON.stringify([{ action: "opened" }]);
+      const sig = signPayload(arrayStr);
+      const res = await fetch(`${baseUrl}/github/webhooks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "issues",
+          "X-GitHub-Delivery": crypto.randomUUID(),
+          "X-Hub-Signature-256": sig,
+        },
+        body: arrayStr,
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.equal(data.success, false);
+      assert.equal(data.message, "Malformed webhook payload");
+    });
+
+    await test("Empty object payload rejects with 400", async () => {
+      const emptyStr = JSON.stringify({});
+      const sig = signPayload(emptyStr);
+      const res = await fetch(`${baseUrl}/github/webhooks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-GitHub-Event": "issues",
+          "X-GitHub-Delivery": crypto.randomUUID(),
+          "X-Hub-Signature-256": sig,
+        },
+        body: emptyStr,
+      });
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.equal(data.success, false);
+      assert.equal(data.message, "Malformed webhook payload");
+    });
+
     // ------------------------------------------------------------------
     // 2. Supported Events: issues.closed & issues.reopened
     // ------------------------------------------------------------------
@@ -370,10 +427,155 @@ async function runWebhookTests() {
       assert.equal(updatedTicket.status, "TODO");
     });
 
+    await test("issues.opened records GITHUB_ISSUE_OPENED activity log", async () => {
+      const deliveryId = crypto.randomUUID();
+      const payload = {
+        action: "opened",
+        issue: {
+          id: dynamicIssueId,
+          number: 50,
+          state: "open",
+        },
+        repository: {
+          id: Number(dynamicRepoId),
+          name: "dev4ai",
+        },
+      };
+
+      const res = await requestWebhook({
+        payload,
+        event: "issues",
+        deliveryId,
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+
+      const [log] = await db
+        .select()
+        .from(activityLogs)
+        .where(
+          and(
+            eq(activityLogs.ticketId, ticketIssueId),
+            eq(activityLogs.action, "GITHUB_ISSUE_OPENED")
+          )
+        );
+      assert.ok(log, "Activity log for issue opened must exist");
+    });
+
     // ------------------------------------------------------------------
     // 3. Supported Events: pull_request
     // ------------------------------------------------------------------
     console.log("\n--- 3. Pull Request Events Synchronization ---");
+
+    await test("pull_request.opened records GITHUB_PR_OPENED activity log", async () => {
+      const deliveryId = crypto.randomUUID();
+      const payload = {
+        action: "opened",
+        pull_request: {
+          id: dynamicPrId,
+          number: 60,
+          state: "open",
+        },
+        repository: {
+          id: Number(dynamicRepoId),
+          name: "dev4ai",
+        },
+      };
+
+      const res = await requestWebhook({
+        payload,
+        event: "pull_request",
+        deliveryId,
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+
+      const [log] = await db
+        .select()
+        .from(activityLogs)
+        .where(
+          and(
+            eq(activityLogs.ticketId, ticketPrId),
+            eq(activityLogs.action, "GITHUB_PR_OPENED")
+          )
+        );
+      assert.ok(log, "Activity log for PR opened must exist");
+    });
+
+    await test("pull_request.synchronize records GITHUB_PR_SYNCHRONIZED activity log", async () => {
+      const deliveryId = crypto.randomUUID();
+      const payload = {
+        action: "synchronize",
+        pull_request: {
+          id: dynamicPrId,
+          number: 60,
+          state: "open",
+        },
+        repository: {
+          id: Number(dynamicRepoId),
+          name: "dev4ai",
+        },
+      };
+
+      const res = await requestWebhook({
+        payload,
+        event: "pull_request",
+        deliveryId,
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+
+      const [log] = await db
+        .select()
+        .from(activityLogs)
+        .where(
+          and(
+            eq(activityLogs.ticketId, ticketPrId),
+            eq(activityLogs.action, "GITHUB_PR_SYNCHRONIZED")
+          )
+        );
+      assert.ok(log, "Activity log for PR synchronize must exist");
+    });
+
+    await test("pull_request.closed without merge records GITHUB_PR_CLOSED activity log", async () => {
+      const deliveryId = crypto.randomUUID();
+      const payload = {
+        action: "closed",
+        pull_request: {
+          id: dynamicPrId,
+          number: 60,
+          state: "closed",
+          merged: false,
+        },
+        repository: {
+          id: Number(dynamicRepoId),
+          name: "dev4ai",
+        },
+      };
+
+      const res = await requestWebhook({
+        payload,
+        event: "pull_request",
+        deliveryId,
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+
+      const [log] = await db
+        .select()
+        .from(activityLogs)
+        .where(
+          and(
+            eq(activityLogs.ticketId, ticketPrId),
+            eq(activityLogs.action, "GITHUB_PR_CLOSED")
+          )
+        );
+      assert.ok(log, "Activity log for unmerged PR close must exist");
+    });
 
     await test("pull_request.closed with merged: true updates ticket to DONE", async () => {
       const deliveryId = crypto.randomUUID();

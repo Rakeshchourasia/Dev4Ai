@@ -15,7 +15,7 @@ const config = {
     "http://127.0.0.1:3000/auth/github/callback",
   githubTokenEncryptionKey: process.env.GITHUB_TOKEN_ENCRYPTION_KEY,
   githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET,
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
 };
-
 
 export default config;
