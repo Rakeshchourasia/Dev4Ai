@@ -28,15 +28,16 @@ export const squadMembers = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    pk: primaryKey({
+  (table) => [
+
+    primaryKey({
       columns: [
         table.squadId,
         table.userId,
       ],
     }),
 
-    userIdIdx: index("squad_members_user_id_idx")
+    index("squad_members_user_id_idx")
       .on(table.userId),
-  })
+  ]
 );

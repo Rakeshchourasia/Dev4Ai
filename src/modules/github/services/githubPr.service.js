@@ -4,7 +4,7 @@ import ticketRepository from "../../tickets/repositories/ticket.repository.js";
 import squadMemberRepository from "../../squads/repositories/squadMember.repository.js";
 import squadGithubRepoRepository from "../../squads/repositories/squadGithubRepo.repository.js";
 import ticketGithubPrRepository from "../repositories/ticketGithubPr.repository.js";
-import githubConnectionService from "./githubConnection.service.js";
+import githubTokenService from "./githubToken.service.js";
 import { githubGet } from "../utils/githubClient.js";
 import activityService from "../../activity/services/activity.service.js";
 
@@ -42,7 +42,7 @@ class GithubPrService {
   // GET /github/repos/:owner/:repo/pulls
   // ==========================================
   async listPulls(userId, { owner, repo, state = "open", page = 1, perPage = 30, sort = "created", direction = "desc", head, base }) {
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     const query = {
       state,
@@ -84,7 +84,7 @@ class GithubPrService {
   // GET /github/repos/:owner/:repo/pulls/:pullNumber
   // ==========================================
   async getPull(userId, { owner, repo, pullNumber }) {
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     const pr = await githubGet({
       path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}`,
@@ -121,7 +121,7 @@ class GithubPrService {
   // GET /github/repos/:owner/:repo/pulls/:pullNumber/files
   // ==========================================
   async getPullFiles(userId, { owner, repo, pullNumber }) {
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     const rawFiles = await githubGet({
       path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}/files`,
@@ -148,7 +148,7 @@ class GithubPrService {
   // GET /github/repos/:owner/:repo/pulls/:pullNumber/commits
   // ==========================================
   async getPullCommits(userId, { owner, repo, pullNumber }) {
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     const rawCommits = await githubGet({
       path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${pullNumber}/commits`,
@@ -172,7 +172,7 @@ class GithubPrService {
   // GET /github/repos/:owner/:repo/pulls/:pullNumber/diff
   // ==========================================
   async getPullDiff(userId, { owner, repo, pullNumber }) {
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     // Fetch PR details, files, commits, and raw unified diff in parallel
     const [pr, files, commits, rawDiff] = await Promise.all([
@@ -280,7 +280,7 @@ class GithubPrService {
     }
 
     // 3. Fetch authoritative PR from GitHub
-    const token = await githubConnectionService.getDecryptedAccessToken(user.id);
+    const token = await githubTokenService.getValidAccessToken(user.id);
     const targetOwner = linkedRepo.githubOwner;
     const targetRepo = linkedRepo.githubRepositoryName;
 

@@ -1,5 +1,6 @@
 import {
   eq,
+  and,
   count,
   asc,
   desc,
@@ -7,63 +8,98 @@ import {
 
 import { db } from "../../../db/index.js";
 import { squads } from "../../../db/schema/squads.schema.js";
+import { squadMembers } from "../../../db/schema/squadMembers.schema.js";
 
 class SquadRepository {
   // ==========================================
   // GET SQUADS BY COMPANY - PAGINATED
   // ==========================================
 
-async findAllByCompanyId(
-  companyId,
-  {
-    limit,
-    offset,
-    sortBy = "createdAt",
-    sortOrder = "desc",
-  } = {}
-) {
-  const sortColumns = {
-    name: squads.name,
-    createdAt: squads.createdAt,
-    updatedAt: squads.updatedAt,
-  };
+  async findAllByCompanyId(
+    companyId,
+    {
+      limit,
+      offset,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      userId,
+    } = {}
+  ) {
+    const sortColumns = {
+      name: squads.name,
+      createdAt: squads.createdAt,
+      updatedAt: squads.updatedAt,
+    };
 
-  const sortColumn =
-    sortColumns[sortBy] ||
-    squads.createdAt;
+    const sortColumn =
+      sortColumns[sortBy] ||
+      squads.createdAt;
 
-  const order =
-    sortOrder === "asc"
-      ? asc(sortColumn)
-      : desc(sortColumn);
+    const order =
+      sortOrder === "asc"
+        ? asc(sortColumn)
+        : desc(sortColumn);
 
-  return await db
-    .select()
-    .from(squads)
-    .where(
-      eq(
-        squads.companyId,
-        companyId
-      )
-    )
-    .orderBy(order)
-    .limit(limit)
-    .offset(offset);
-}
+    let query = db
+      .select({
+        id: squads.id,
+        companyId: squads.companyId,
+        name: squads.name,
+        createdAt: squads.createdAt,
+        updatedAt: squads.updatedAt,
+      })
+      .from(squads);
+
+    if (userId) {
+      query = query
+        .innerJoin(
+          squadMembers,
+          eq(squadMembers.squadId, squads.id)
+        )
+        .where(
+          and(
+            eq(squads.companyId, companyId),
+            eq(squadMembers.userId, userId)
+          )
+        );
+    } else {
+      query = query.where(eq(squads.companyId, companyId));
+    }
+
+    return await query
+      .orderBy(order)
+      .limit(limit)
+      .offset(offset);
+  }
+
   // ==========================================
   // COUNT SQUADS BY COMPANY
   // ==========================================
 
-  async countByCompanyId(companyId) {
-    const result = await db
+  async countByCompanyId(companyId, userId) {
+    let query = db
       .select({
         count: count(),
       })
-      .from(squads)
-      .where(
-        eq(squads.companyId, companyId)
-      );
+      .from(squads);
 
+    if (userId) {
+      query = query
+        .innerJoin(
+          squadMembers,
+          eq(squadMembers.squadId, squads.id)
+        )
+        .where(
+          and(
+            eq(squads.companyId, companyId),
+            eq(squadMembers.userId, userId)
+          )
+        );
+    } else {
+      query = query.where(eq(squads.companyId, companyId));
+    }
+
+    const result = await query;
     return Number(
       result[0]?.count || 0
     );

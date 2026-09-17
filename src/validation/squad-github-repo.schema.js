@@ -9,12 +9,10 @@ const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-
 
 export const linkSquadGithubRepoSchema = z.object({
   githubRepositoryId: z.coerce
-    .number({
-      required_error: "githubRepositoryId is required",
-      invalid_type_error: "githubRepositoryId must be a number",
+    .string({
+      error: "githubRepositoryId is required",
     })
-    .int("githubRepositoryId must be an integer")
-    .positive("githubRepositoryId must be a positive number"),
+    .min(1, "githubRepositoryId cannot be empty"),
 
   owner: githubOwnerName,
   repo: githubRepoName,

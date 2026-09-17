@@ -5,7 +5,7 @@ import sprintRepository from "../../sprints/repositories/sprint.repository.js";
 import squadMemberRepository from "../../squads/repositories/squadMember.repository.js";
 import squadGithubRepoRepository from "../../squads/repositories/squadGithubRepo.repository.js";
 import ticketGithubIssueRepository from "../repositories/ticketGithubIssue.repository.js";
-import githubConnectionService from "./githubConnection.service.js";
+import githubTokenService from "./githubToken.service.js";
 import { githubGet, githubPost } from "../utils/githubClient.js";
 import activityService from "../../activity/services/activity.service.js";
 
@@ -76,7 +76,7 @@ class GithubIssueService {
   // GET /github/repos/:owner/:repo/issues
   // ==========================================
   async listIssues(userId, { owner, repo, state = "open", page = 1, perPage = 30 }) {
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     const rawIssues = await githubGet({
       path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`,
@@ -140,7 +140,7 @@ class GithubIssueService {
     }
 
     // 4. Fetch authoritative GitHub issue from GitHub API
-    const token = await githubConnectionService.getDecryptedAccessToken(user.id);
+    const token = await githubTokenService.getValidAccessToken(user.id);
     const rawIssue = await githubGet({
       path: `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${issueNumber}`,
       token,
@@ -264,7 +264,7 @@ class GithubIssueService {
     }
 
     // 4. Create issue on GitHub API
-    const token = await githubConnectionService.getDecryptedAccessToken(user.id);
+    const token = await githubTokenService.getValidAccessToken(user.id);
     const targetOwner = linkedRepo.githubOwner;
     const targetRepo = linkedRepo.githubRepositoryName;
 

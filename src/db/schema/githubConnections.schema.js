@@ -57,18 +57,19 @@ export const githubConnections = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
+  (table) => [
+
     // Each DEVAI user can have at most one GitHub connection
-    userIdUnique: uniqueIndex(
+    uniqueIndex(
       "github_connections_user_id_unique"
     ).on(table.userId),
 
     // Each GitHub account can be connected to at most one DEVAI user
-    githubUserIdUnique: uniqueIndex(
+    uniqueIndex(
       "github_connections_github_user_id_unique"
     ).on(table.githubUserId),
 
     // Supporting index for lookups by userId
-    userIdIdx: index("github_connections_user_id_idx").on(table.userId),
-  })
+    index("github_connections_user_id_idx").on(table.userId),
+  ]
 );

@@ -15,4 +15,5 @@ router.post("/logout", authRateLimiter, validate(refreshSchema), authController.
 router.post("/register", authRateLimiter, validate(registerSchema), authController.register);
 router.get("/github", authRateLimiter, authController.githubLogin);
 router.get("/github/callback", authRateLimiter, authController.githubCallback);
+router.post("/github/exchange", authRateLimiter, authController.githubExchange);
 export default router;

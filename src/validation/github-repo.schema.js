@@ -10,7 +10,7 @@ import { z } from "zod";
  * Prevent path traversal and special characters.
  */
 const githubOwnerName = z
-  .string({ required_error: "Owner name is required" })
+  .string({ error: "Owner name is required" })
   .min(1, "Owner name is required")
   .max(39, "Owner name must be at most 39 characters")
   .regex(
@@ -27,7 +27,7 @@ const githubOwnerName = z
  * Cannot contain path traversal or end with ".git".
  */
 const githubRepoName = z
-  .string({ required_error: "Repository name is required" })
+  .string({ error: "Repository name is required" })
   .min(1, "Repository name is required")
   .max(100, "Repository name must be at most 100 characters")
   .regex(
@@ -57,26 +57,26 @@ export const githubRepoListQuerySchema = z.object({
   // Visibility filter
   visibility: z
     .enum(["all", "public", "private"], {
-      errorMap: () => ({ message: "visibility must be one of: all, public, private" }),
+      error: "visibility must be one of: all, public, private",
     })
     .default("all"),
 
   // Pagination — use "perPage" in the API, also accept "limit"
   page: z.coerce
-    .number({ invalid_type_error: "page must be a number" })
+    .number({ error: "page must be a number" })
     .int("page must be an integer")
     .min(1, "page must be at least 1")
     .default(1),
 
   perPage: z.coerce
-    .number({ invalid_type_error: "perPage must be a number" })
+    .number({ error: "perPage must be a number" })
     .int("perPage must be an integer")
     .min(1, "perPage must be at least 1")
     .max(100, "perPage must be at most 100")
     .default(30),
 
   limit: z.coerce
-    .number({ invalid_type_error: "limit must be a number" })
+    .number({ error: "limit must be a number" })
     .int("limit must be an integer")
     .min(1, "limit must be at least 1")
     .max(100, "limit must be at most 100")

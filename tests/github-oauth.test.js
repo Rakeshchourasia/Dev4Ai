@@ -12,6 +12,7 @@ import app from "../src/app.js";
 import { pool, db } from "../src/db/index.js";
 import { users } from "../src/db/schema/users.schema.js";
 import { userAuthAccounts } from "../src/db/schema/userAuthAccounts.schema.js";
+import { githubConnections } from "../src/db/schema/githubConnections.schema.js";
 import { activityLogs } from "../src/db/schema/activityLogs.schema.js";
 import { eq, and } from "drizzle-orm";
 import jwt from "jsonwebtoken";
@@ -48,7 +49,7 @@ let mockGithubConfig = {
   tokenResponse: {
     access_token: "mock_gh_access_token_secret_123",
     token_type: "bearer",
-    scope: "read:user user:email",
+    scope: "read:user user:email read:org repo",
   },
   tokenStatus: 200,
   userResponse: {
@@ -155,7 +156,7 @@ async function runGithubOAuthTests() {
       const url = new URL(location);
       assert.equal(url.searchParams.get("client_id"), "test_github_client_id");
       assert.equal(url.searchParams.get("redirect_uri"), "http://127.0.0.1:3000/auth/github/callback");
-      assert.equal(url.searchParams.get("scope"), "read:user user:email");
+      assert.equal(url.searchParams.get("scope"), "read:user user:email read:org repo");
       assert.equal(url.searchParams.get("code_challenge_method"), "S256");
       assert.ok(url.searchParams.get("code_challenge"));
       assert.ok(url.searchParams.get("state"));
@@ -233,7 +234,14 @@ async function runGithubOAuthTests() {
       assert.ok(res.body.message.includes("Invalid or expired OAuth state"));
     });
 
-    await test("Callback rejects state CSRF nonce mismatch if cookie present (403 Forbidden)", async () => {
+    await test("Callback rejects missing nonce cookie (403 Forbidden)", async () => {
+      const res = await request(`/auth/github/callback?code=mock_code_123&state=${validStateToken}`);
+      assert.equal(res.status, 403);
+      assert.equal(res.body.success, false);
+      assert.ok(res.body.message.includes("Missing nonce cookie"));
+    });
+
+    await test("Callback rejects state CSRF nonce mismatch (403 Forbidden)", async () => {
       const res = await request(`/auth/github/callback?code=mock_code_123&state=${validStateToken}`, {
         headers: { Cookie: "devai_oauth_nonce=attacker_nonce_mismatch" },
       });
@@ -260,7 +268,7 @@ async function runGithubOAuthTests() {
       mockGithubConfig.tokenResponse = {
         access_token: "mock_gh_access_token_secret_123",
         token_type: "bearer",
-        scope: "read:user user:email",
+        scope: "read:user user:email read:org repo",
       };
     });
 
@@ -278,11 +286,12 @@ async function runGithubOAuthTests() {
       mockGithubConfig.userStatus = 200;
     });
 
-    await test("Callback rejects account when GitHub returns no verified email (400 Bad Request)", async () => {
+    await test("Callback rejects account when GitHub returns no verified email even if profile has email (400 Bad Request)", async () => {
       mockGithubConfig.emailsResponse = [
         { email: "unverified@example.com", primary: true, verified: false },
       ];
-      mockGithubConfig.userResponse.email = null;
+      // Profile email is set, but MUST NOT be used as an unverified fallback
+      mockGithubConfig.userResponse.email = "unverified_profile_fallback@example.com";
 
       const res = await request(
         `/auth/github/callback?code=mock_code_123&state=${validStateToken}`,
@@ -291,6 +300,35 @@ async function runGithubOAuthTests() {
       assert.equal(res.status, 400);
       assert.equal(res.body.success, false);
       assert.ok(res.body.message.includes("verified email"));
+
+      // Restore mock
+      mockGithubConfig.emailsResponse = [
+        { email: "octo_primary@example.com", primary: true, verified: true },
+      ];
+      mockGithubConfig.userResponse.email = null;
+    });
+
+    await test("Callback accepts secondary email when primary is unverified but secondary is verified", async () => {
+      const uniqueId = Date.now() + 55;
+      const secVerifiedEmail = `secondary_${uniqueId}@example.com`;
+      mockGithubConfig.userResponse = {
+        id: uniqueId,
+        login: `octo_sec_${uniqueId}`,
+        name: "Octo Secondary",
+        avatar_url: `https://avatars.github.com/u/${uniqueId}`,
+      };
+      mockGithubConfig.emailsResponse = [
+        { email: "primary_unverified@example.com", primary: true, verified: false },
+        { email: secVerifiedEmail, primary: false, verified: true },
+      ];
+
+      const res = await request(
+        `/auth/github/callback?code=valid_code_sec&state=${validStateToken}`,
+        { headers: { Cookie: `devai_oauth_nonce=${validCookieNonce}` } }
+      );
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(res.body.data.user.email, secVerifiedEmail);
 
       // Restore mock
       mockGithubConfig.emailsResponse = [
@@ -353,6 +391,20 @@ async function runGithubOAuthTests() {
       assert.ok(record);
       assert.equal(record.userId, createdUserId);
       assert.equal(record.providerEmail, githubEmail);
+    });
+
+    await test("Database stores GitHub connection in github_connections with encrypted token and granted scopes", async () => {
+      const [conn] = await db
+        .select()
+        .from(githubConnections)
+        .where(eq(githubConnections.userId, createdUserId));
+
+      assert.ok(conn);
+      assert.equal(conn.githubUserId, String(uniqueGithubId));
+      assert.ok(conn.accessTokenEncrypted);
+      assert.ok(conn.scopes);
+      assert.ok(conn.scopes.includes("read:org"));
+      assert.ok(conn.scopes.includes("repo"));
     });
 
     await test("Database stores user with password = null", async () => {

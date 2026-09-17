@@ -44,11 +44,11 @@ export const users = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    emailUnique: uniqueIndex("users_email_unique")
+  (table) => [
+    uniqueIndex("users_email_unique")
       .on(table.email),
 
-    roleIdx: index("users_role_idx")
+    index("users_role_idx")
       .on(table.role),
-  })
+  ]
 );

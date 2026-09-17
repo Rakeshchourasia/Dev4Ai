@@ -55,17 +55,18 @@ export const ticketGithubPullRequests = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
+  (table) => [
+
     // Prevent linking the exact same GitHub PR to the same ticket multiple times
-    ticketRepoPrUnique: uniqueIndex("ticket_github_prs_unique")
+    uniqueIndex("ticket_github_prs_unique")
       .on(table.ticketId, table.githubRepositoryId, table.githubPrId),
 
     // Fast lookup for all PRs linked to a ticket
-    ticketIdIdx: index("ticket_github_prs_ticket_id_idx")
+    index("ticket_github_prs_ticket_id_idx")
       .on(table.ticketId),
 
     // Supporting index on PR number
-    prNumberIdx: index("ticket_github_prs_number_idx")
+    index("ticket_github_prs_number_idx")
       .on(table.githubPrNumber),
-  })
+  ]
 );

@@ -1,7 +1,7 @@
 import AppError from "../../../shared/errors/AppError.js";
 import squadRepository from "../repositories/squad.repository.js";
 import squadGithubRepoRepository from "../repositories/squadGithubRepo.repository.js";
-import githubConnectionService from "../../github/services/githubConnection.service.js";
+import githubTokenService from "../../github/services/githubToken.service.js";
 import { githubGet } from "../../github/utils/githubClient.js";
 
 class SquadGithubRepoService {
@@ -22,7 +22,7 @@ class SquadGithubRepoService {
     }
 
     // 2. Verify user has an active GitHub connection
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     // 3. Prevent duplicate linking by input repository ID
     const existing = await squadGithubRepoRepository.findBySquadAndRepoId(

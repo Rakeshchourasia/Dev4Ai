@@ -48,11 +48,12 @@ export const sprints = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    squadIdIdx: index("sprints_squad_id_idx")
+  (table) => [
+
+    index("sprints_squad_id_idx")
       .on(table.squadId),
 
-    statusIdx: index("sprints_status_idx")
+    index("sprints_status_idx")
       .on(table.status),
-  })
+  ]
 );

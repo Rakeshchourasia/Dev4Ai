@@ -37,6 +37,7 @@ process.env.GITHUB_TOKEN_ENCRYPTION_KEY =
 
 import assert from "node:assert/strict";
 import http from "node:http";
+import jwt from "jsonwebtoken";
 import app from "../src/app.js";
 import { pool, db } from "../src/db/index.js";
 import { users } from "../src/db/schema/users.schema.js";
@@ -308,20 +309,15 @@ async function request(path, options = {}) {
 async function performOAuth() {
   const initRes = await request("/auth/github", { headers: { Accept: "application/json" } });
   assert.equal(initRes.status, 200, "OAuth init must return 200");
-  const parsed = new URL(initRes.body.data.authUrl);
-  const state = parsed.searchParams.get("state");
-
-  const rawCookies = initRes.headers.get("set-cookie") || "";
-  const cookieMatches = [...rawCookies.matchAll(/([^=,\s]+)=([^;]+)/g)];
-  const nonceMatch = cookieMatches.find((m) => m[1] === "github_oauth_nonce");
-  const cookieHeader = nonceMatch ? `github_oauth_nonce=${nonceMatch[2]}` : "";
+  const { state } = initRes.body.data;
+  const { nonce } = jwt.verify(state, config.jwtSecret);
 
   const callbackRes = await request(
     `/auth/github/callback?code=mock_code_${Date.now()}&state=${state}`,
     {
       headers: {
         Accept: "application/json",
-        Cookie: cookieHeader,
+        Cookie: `devai_oauth_nonce=${nonce}`,
       },
     }
   );

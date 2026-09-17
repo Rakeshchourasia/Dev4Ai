@@ -79,6 +79,36 @@ class GithubConnectionRepository {
   }
 
   // ==========================================
+  // UPDATE TOKENS
+  // ==========================================
+
+  /**
+   * Updates tokens, expiration timestamps, and scopes for an existing connection.
+   *
+   * @param {string} userId
+   * @param {object} data
+   * @param {string} data.accessTokenEncrypted
+   * @param {string|null} [data.refreshTokenEncrypted]
+   * @param {Date|null} [data.accessTokenExpiresAt]
+   * @param {Date|null} [data.refreshTokenExpiresAt]
+   * @param {string|null} [data.scopes]
+   * @param {object} database
+   */
+  async updateTokens(userId, data, database = db) {
+    const now = new Date();
+    const [record] = await database
+      .update(githubConnections)
+      .set({
+        ...data,
+        updatedAt: now,
+      })
+      .where(eq(githubConnections.userId, userId))
+      .returning();
+
+    return record || null;
+  }
+
+  // ==========================================
   // DELETE BY DEVAI USER ID
   // ==========================================
 

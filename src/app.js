@@ -48,7 +48,7 @@ app.use(
 
 app.use(
   cors({
-    origin: true,
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true,
   })
 );
@@ -72,7 +72,7 @@ app.use(
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: process.env.NODE_ENV === 'development' ? 3000 : 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

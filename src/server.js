@@ -1,8 +1,7 @@
 import app from "./app.js";
-import config from "./config/index.js";
+import config, { validateGithubConfig } from "./config/index.js";
 import { db, pool } from "./db/index.js";
 import { sql } from "drizzle-orm";
-import { validateEncryptionKey } from "./shared/utils/tokenEncryption.js";
 
 let server;
 
@@ -45,10 +44,10 @@ process.on("SIGINT",  () => shutdown("SIGINT"));
 
 async function startServer() {
   try {
-    // Validate GitHub token encryption key when GitHub OAuth is configured
-    if (config.githubClientId) {
-      validateEncryptionKey();
-      console.log("✅ GitHub token encryption key validated");
+    // Validate GitHub OAuth configuration when configured or in production
+    if (config.githubClientId || process.env.NODE_ENV === "production") {
+      validateGithubConfig();
+      console.log("✅ GitHub OAuth configuration validated");
     }
 
     await db.execute(sql`SELECT 1`);

@@ -31,8 +31,9 @@ export const squads = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    companyIdIdx: index("squads_company_id_idx")
+  (table) => [
+
+    index("squads_company_id_idx")
       .on(table.companyId),
-  })
+  ]
 );

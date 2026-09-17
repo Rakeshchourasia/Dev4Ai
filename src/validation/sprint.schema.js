@@ -20,15 +20,19 @@ export const createSprintSchema = z.object({
 
   startDate: z
     .string()
-    .datetime(
-      "Invalid start date"
-    ),
+    .datetime({
+      message: "Invalid start date",
+      offset: true,
+    })
+    .transform((val) => new Date(val).toISOString()),
 
   endDate: z
     .string()
-    .datetime(
-      "Invalid end date"
-    ),
+    .datetime({
+      message: "Invalid end date",
+      offset: true,
+    })
+    .transform((val) => new Date(val).toISOString()),
 });
 
 // ==========================================
@@ -57,16 +61,20 @@ export const updateSprintSchema = z
 
     startDate: z
       .string()
-      .datetime(
-        "Invalid start date"
-      )
+      .datetime({
+        message: "Invalid start date",
+        offset: true,
+      })
+      .transform((val) => new Date(val).toISOString())
       .optional(),
 
     endDate: z
       .string()
-      .datetime(
-        "Invalid end date"
-      )
+      .datetime({
+        message: "Invalid end date",
+        offset: true,
+      })
+      .transform((val) => new Date(val).toISOString())
       .optional(),
   })
   .refine(

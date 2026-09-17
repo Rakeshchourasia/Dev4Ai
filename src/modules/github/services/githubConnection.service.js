@@ -4,9 +4,8 @@ import {
   decrypt,
 } from "../../../shared/utils/tokenEncryption.js";
 import githubConnectionRepository from "../repositories/githubConnection.repository.js";
+import githubTokenService from "./githubToken.service.js";
 import config from "../../../config/index.js";
-
-const GITHUB_TOKEN_REVOKE_URL = `https://api.github.com/applications/${null}/token`;
 
 class GithubConnectionService {
   // ==========================================
@@ -81,6 +80,16 @@ class GithubConnectionService {
       );
     }
 
+    // If another account was previously connected to this GitHub user ID, clean it up
+    // to avoid unique constraint conflict on github_user_id
+    const existingByGithubId = await githubConnectionRepository.findByGithubUserId(
+      githubUserId,
+      database
+    );
+    if (existingByGithubId && existingByGithubId.userId !== userId) {
+      await githubConnectionRepository.deleteByUserId(existingByGithubId.userId, database);
+    }
+
     const record = await githubConnectionRepository.upsert(
       {
         userId,
@@ -107,7 +116,7 @@ class GithubConnectionService {
    * Never exposes encrypted tokens or plaintext tokens.
    *
    * @param {string} userId — DEVAI user UUID (from JWT)
-   * @returns {{ connected: boolean, github?: { id: string, username: string, avatarUrl: string } }}
+   * @returns {{ connected: boolean, github?: { id: string, username: string, avatarUrl: string, scopes: string|null, accessTokenExpiresAt: Date|null } }}
    */
   async getConnection(userId) {
     const record = await githubConnectionRepository.findByUserId(userId);
@@ -125,6 +134,8 @@ class GithubConnectionService {
         id: record.githubUserId,
         username: record.githubUsername,
         avatarUrl,
+        scopes: record.scopes || null,
+        tokenExpiresAt: record.accessTokenExpiresAt || null,
       },
     };
   }
@@ -190,36 +201,22 @@ class GithubConnectionService {
 
   // ==========================================
   // GET DECRYPTED TOKEN (INTERNAL USE ONLY)
-  // For future GitHub API calls (orgs, repos, issues, PRs, webhooks)
+  // Delegates to githubTokenService for automatic refresh and expiry validation
   // ==========================================
 
   /**
-   * Returns the decrypted GitHub access token for a given user.
+   * Returns a valid, decrypted GitHub access token for a given user.
+   * Delegates to githubTokenService.getValidAccessToken(userId).
    * FOR INTERNAL SERVER-SIDE USE ONLY — never expose in responses.
    *
    * @param {string} userId — DEVAI user UUID
-   * @returns {string} plaintext GitHub access token
-   * @throws {AppError} if no connection or decryption fails
+   * @returns {Promise<string>} plaintext GitHub access token
+   * @throws {AppError} if no connection or decryption/refresh fails
    */
   async getDecryptedAccessToken(userId) {
-    const record = await githubConnectionRepository.findByUserId(userId);
-
-    if (!record) {
-      throw new AppError(
-        "No GitHub connection found. Please reconnect your GitHub account.",
-        404
-      );
-    }
-
-    try {
-      return decrypt(record.accessTokenEncrypted);
-    } catch (err) {
-      throw new AppError(
-        `Failed to decrypt GitHub access token: ${err.message}`,
-        500
-      );
-    }
+    return await githubTokenService.getValidAccessToken(userId);
   }
 }
 
 export default new GithubConnectionService();
+

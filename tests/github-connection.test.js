@@ -35,6 +35,7 @@ import { eq, and } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import config from "../src/config/index.js";
 import { encrypt, decrypt } from "../src/shared/utils/tokenEncryption.js";
+import githubTokenService from "../src/modules/github/services/githubToken.service.js";
 
 // Ensure config has test values
 config.githubClientId = process.env.GITHUB_CLIENT_ID;
@@ -67,13 +68,16 @@ async function test(name, fn) {
 // ==========================================
 
 const originalFetch = globalThis.fetch;
+let lastCapturedHeaders = {};
 let mockGithubConfig = {
   tokenResponse: {
     access_token: "mock_gh_access_token_conn_test_abc123",
     token_type: "bearer",
-    scope: "read:user user:email",
+    scope: "read:user user:email read:org repo",
   },
   tokenStatus: 200,
+  refreshResponse: null,
+  refreshStatus: 200,
   userResponse: {
     id: 55667788,
     login: "conn_test_user",
@@ -85,12 +89,45 @@ let mockGithubConfig = {
     { email: "conn_test@example.com", primary: true, verified: true },
   ],
   emailsStatus: 200,
+  userReposResponse: [
+    {
+      id: 991,
+      name: "refreshed-repo",
+      full_name: "conn_test_user/refreshed-repo",
+      owner: { login: "conn_test_user" },
+      private: false,
+      default_branch: "main",
+      html_url: "https://github.com/conn_test_user/refreshed-repo",
+    },
+  ],
+  userOrgsResponse: [
+    {
+      id: 881,
+      login: "refreshed-org",
+      avatar_url: "https://avatars.github.com/u/881",
+      description: "Refreshed Org",
+    },
+  ],
 };
 
 globalThis.fetch = async (url, options = {}) => {
   const urlString = String(url);
 
   if (urlString.includes("github.com/login/oauth/access_token")) {
+    if (options.body && typeof options.body === "string" && options.body.includes("refresh_token")) {
+      if (mockGithubConfig.refreshStatus && mockGithubConfig.refreshStatus !== 200) {
+        return new Response(JSON.stringify(mockGithubConfig.refreshResponse || { error: "bad_refresh_token" }), {
+          status: mockGithubConfig.refreshStatus,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (mockGithubConfig.refreshResponse) {
+        return new Response(JSON.stringify(mockGithubConfig.refreshResponse), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
     return new Response(JSON.stringify(mockGithubConfig.tokenResponse), {
       status: mockGithubConfig.tokenStatus,
       headers: { "Content-Type": "application/json" },
@@ -107,6 +144,22 @@ globalThis.fetch = async (url, options = {}) => {
   if (urlString.includes("api.github.com/user/emails")) {
     return new Response(JSON.stringify(mockGithubConfig.emailsResponse), {
       status: mockGithubConfig.emailsStatus,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (urlString.includes("api.github.com/user/repos")) {
+    lastCapturedHeaders["/user/repos"] = options.headers;
+    return new Response(JSON.stringify(mockGithubConfig.userReposResponse), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (urlString.includes("api.github.com/user/orgs")) {
+    lastCapturedHeaders["/user/orgs"] = options.headers;
+    return new Response(JSON.stringify(mockGithubConfig.userOrgsResponse), {
+      status: 200,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -607,6 +660,238 @@ async function runGithubConnectionTests() {
       // GitHub access token must NOT be in the response
       const jsonStr = JSON.stringify(authRes);
       assert.ok(!jsonStr.includes("mock_gh_access_token"), "GitHub access token leaked in response");
+    });
+
+    // ========================================================
+    // SECTION 10: GITHUB TOKEN SERVICE & AUTOMATIC REFRESH
+    // ========================================================
+    console.log("\n--- 10. Dedicated GitHub Token Service & Token Refresh ---");
+
+    // Create a fresh test user with GitHub connection for token refresh tests
+    const refreshTestGithubId = Date.now() + 8888;
+    const refreshUserEmail = `token_refresh_${refreshTestGithubId}@example.com`;
+
+    mockGithubConfig.userResponse = {
+      id: refreshTestGithubId,
+      login: `refresh_octo_${refreshTestGithubId}`,
+      name: "Refresh Octo",
+      avatar_url: `https://avatars.github.com/u/${refreshTestGithubId}`,
+    };
+    mockGithubConfig.emailsResponse = [
+      { email: refreshUserEmail, primary: true, verified: true },
+    ];
+
+    const initRefreshOAuth = await request("/auth/github", { headers: { Accept: "application/json" } });
+    const refreshState = initRefreshOAuth.body.data.state;
+    const refreshDecoded = jwt.verify(refreshState, config.jwtSecret);
+    const refreshAuthRes = await performGithubOAuth(refreshState, refreshDecoded.nonce);
+    const refreshUserId = refreshAuthRes.user.id;
+    const refreshUserJwt = refreshAuthRes.accessToken;
+
+    await test("getValidAccessToken returns decrypted access token directly when token has no expiry (classic token)", async () => {
+      const token = await githubTokenService.getValidAccessToken(refreshUserId);
+      assert.equal(token, "mock_gh_access_token_conn_test_abc123");
+    });
+
+    await test("getValidAccessToken returns decrypted token directly when token expires far in future (> 60s)", async () => {
+      // Set expiration to 1 hour in the future
+      const futureExpiry = new Date(Date.now() + 3600 * 1000);
+      await db
+        .update(githubConnections)
+        .set({ accessTokenExpiresAt: futureExpiry })
+        .where(eq(githubConnections.userId, refreshUserId));
+
+      const token = await githubTokenService.getValidAccessToken(refreshUserId);
+      assert.equal(token, "mock_gh_access_token_conn_test_abc123");
+    });
+
+    await test("getValidAccessToken automatically refreshes token when expired, rotating refresh token and updating DB", async () => {
+      // Set token as expired (10 seconds ago) and provide an encrypted refresh token
+      const expiredAt = new Date(Date.now() - 10 * 1000);
+      const initialRefreshToken = "ghr_initial_refresh_token_test_123";
+      await db
+        .update(githubConnections)
+        .set({
+          accessTokenExpiresAt: expiredAt,
+          refreshTokenEncrypted: encrypt(initialRefreshToken),
+        })
+        .where(eq(githubConnections.userId, refreshUserId));
+
+      const newAccessTokenFromGithub = "ghu_refreshed_access_token_xyz999";
+      const rotatedRefreshTokenFromGithub = "ghr_rotated_refresh_token_xyz888";
+
+      mockGithubConfig.refreshResponse = {
+        access_token: newAccessTokenFromGithub,
+        expires_in: 7200,
+        refresh_token: rotatedRefreshTokenFromGithub,
+        refresh_token_expires_in: 14400,
+        scope: "read:user user:email read:org repo",
+        token_type: "bearer",
+      };
+
+      const refreshedToken = await githubTokenService.getValidAccessToken(refreshUserId);
+      assert.equal(refreshedToken, newAccessTokenFromGithub);
+
+      // Verify database record was updated with encrypted tokens
+      const [updatedRecord] = await db
+        .select()
+        .from(githubConnections)
+        .where(eq(githubConnections.userId, refreshUserId));
+
+      assert.ok(updatedRecord);
+      // Stored token is encrypted
+      assert.notEqual(updatedRecord.accessTokenEncrypted, newAccessTokenFromGithub);
+      assert.equal(decrypt(updatedRecord.accessTokenEncrypted), newAccessTokenFromGithub);
+      // Rotated refresh token is encrypted
+      assert.notEqual(updatedRecord.refreshTokenEncrypted, rotatedRefreshTokenFromGithub);
+      assert.equal(decrypt(updatedRecord.refreshTokenEncrypted), rotatedRefreshTokenFromGithub);
+      // Expiration timestamps updated
+      assert.ok(updatedRecord.accessTokenExpiresAt);
+      assert.ok(new Date(updatedRecord.accessTokenExpiresAt).getTime() > Date.now());
+      assert.ok(updatedRecord.refreshTokenExpiresAt);
+      // Scopes updated
+      assert.equal(updatedRecord.scopes, "read:user user:email read:org repo");
+    });
+
+    await test("Failed refresh (invalid/expired refresh token) deletes connection and returns 401 error", async () => {
+      // Set token as expired
+      const expiredAt = new Date(Date.now() - 10 * 1000);
+      await db
+        .update(githubConnections)
+        .set({
+          accessTokenExpiresAt: expiredAt,
+          refreshTokenEncrypted: encrypt("ghr_bad_refresh_token"),
+        })
+        .where(eq(githubConnections.userId, refreshUserId));
+
+      mockGithubConfig.refreshStatus = 400;
+      mockGithubConfig.refreshResponse = {
+        error: "bad_refresh_token",
+        error_description: "The refresh token is invalid or has expired.",
+      };
+
+      await assert.rejects(
+        async () => {
+          await githubTokenService.getValidAccessToken(refreshUserId);
+        },
+        (err) => {
+          assert.equal(err.statusCode, 401);
+          assert.ok(err.message.includes("expired or been revoked"));
+          return true;
+        }
+      );
+
+      // Connection should be deleted
+      const [record] = await db
+        .select()
+        .from(githubConnections)
+        .where(eq(githubConnections.userId, refreshUserId));
+      assert.equal(record, undefined);
+
+      // Reset mock
+      mockGithubConfig.refreshStatus = 200;
+      mockGithubConfig.refreshResponse = null;
+    });
+
+    await test("Repository API (GET /github/repositories) succeeds using refreshed token when current token expired", async () => {
+      // Re-create connection with expiring token
+      const repoTestToken = "ghu_repo_refreshed_access_token_111";
+      const initialToken = "ghu_expired_repo_token";
+      const now = new Date();
+      const expiredAt = new Date(Date.now() - 5000);
+
+      await db.insert(githubConnections).values({
+        userId: refreshUserId,
+        githubUserId: String(refreshTestGithubId),
+        githubUsername: `refresh_octo_${refreshTestGithubId}`,
+        accessTokenEncrypted: encrypt(initialToken),
+        refreshTokenEncrypted: encrypt("ghr_repo_refresh_token"),
+        accessTokenExpiresAt: expiredAt,
+        scopes: "read:user user:email repo",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      mockGithubConfig.refreshStatus = 200;
+      mockGithubConfig.refreshResponse = {
+        access_token: repoTestToken,
+        expires_in: 3600,
+        scope: "read:user user:email read:org repo",
+        token_type: "bearer",
+      };
+
+      const res = await request("/github/repositories", {
+        headers: { Authorization: `Bearer ${refreshUserJwt}` },
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.ok(Array.isArray(res.body.data));
+      // Verify GitHub API was called with the REFRESHED access token
+      assert.equal(
+        lastCapturedHeaders["/user/repos"]?.Authorization || lastCapturedHeaders["/user/repos"]?.authorization,
+        `Bearer ${repoTestToken}`
+      );
+    });
+
+    await test("Organization API (GET /github/organizations) succeeds using refreshed token when current token expired", async () => {
+      // Expire the token again
+      const orgTestToken = "ghu_org_refreshed_access_token_222";
+      const expiredAt = new Date(Date.now() - 5000);
+
+      await db
+        .update(githubConnections)
+        .set({
+          accessTokenExpiresAt: expiredAt,
+          refreshTokenEncrypted: encrypt("ghr_org_refresh_token"),
+        })
+        .where(eq(githubConnections.userId, refreshUserId));
+
+      mockGithubConfig.refreshStatus = 200;
+      mockGithubConfig.refreshResponse = {
+        access_token: orgTestToken,
+        expires_in: 3600,
+        scope: "read:user user:email read:org repo",
+        token_type: "bearer",
+      };
+
+      const res = await request("/github/organizations", {
+        headers: { Authorization: `Bearer ${refreshUserJwt}` },
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.ok(Array.isArray(res.body.data));
+      // Verify GitHub API was called with the REFRESHED access token
+      assert.equal(
+        lastCapturedHeaders["/user/orgs"]?.Authorization || lastCapturedHeaders["/user/orgs"]?.authorization,
+        `Bearer ${orgTestToken}`
+      );
+    });
+
+    await test("GET /github/connection returns safe metadata and never leaks tokens or client secrets", async () => {
+      const res = await request("/github/connection", {
+        headers: { Authorization: `Bearer ${refreshUserJwt}` },
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.equal(res.body.data.connected, true);
+      assert.equal(res.body.data.github.id, String(refreshTestGithubId));
+      assert.ok(res.body.data.github.username);
+      assert.ok(res.body.data.github.avatarUrl);
+      assert.ok("scopes" in res.body.data.github);
+      assert.ok("tokenExpiresAt" in res.body.data.github);
+
+      const jsonStr = JSON.stringify(res.body);
+      assert.ok(!jsonStr.includes("accessToken\":"));
+      assert.ok(!jsonStr.includes("refreshToken\":"));
+      assert.ok(!jsonStr.includes("clientSecret"));
+      assert.ok(!jsonStr.includes("accessTokenEncrypted"));
+      assert.ok(!jsonStr.includes("refreshTokenEncrypted"));
+      assert.ok(!jsonStr.includes("test_github_client_secret"));
+      assert.ok(!jsonStr.includes("ghu_"));
+      assert.ok(!jsonStr.includes("ghr_"));
     });
 
   } finally {

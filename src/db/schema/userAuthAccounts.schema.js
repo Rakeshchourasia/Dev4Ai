@@ -42,15 +42,16 @@ export const userAuthAccounts = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    providerAccountUnique: uniqueIndex(
+  (table) => [
+
+    uniqueIndex(
       "user_auth_accounts_provider_account_unique"
     ).on(table.provider, table.providerAccountId),
 
-    userIdIdx: index("user_auth_accounts_user_id_idx").on(table.userId),
+    index("user_auth_accounts_user_id_idx").on(table.userId),
 
-    providerEmailIdx: index("user_auth_accounts_provider_email_idx").on(
+    index("user_auth_accounts_provider_email_idx").on(
       table.providerEmail
     ),
-  })
+  ]
 );

@@ -12,7 +12,7 @@
  */
 
 import AppError from "../../../shared/errors/AppError.js";
-import githubConnectionService from "./githubConnection.service.js";
+import githubTokenService from "./githubToken.service.js";
 import { githubGet } from "../utils/githubClient.js";
 import { getPagination, buildPagination } from "../../../shared/utils/pagination.js";
 import { githubRepoParamSchema } from "../../../validation/github-repo.schema.js";
@@ -32,8 +32,8 @@ class GithubRepoService {
    * @returns {Promise<{ repositories: Array, pagination: object }>}
    */
   async listRepositories(userId, query = {}) {
-    // 1. Retrieve the user's decrypted GitHub token
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    // 1. Retrieve the user's valid GitHub access token
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     // 2. Extract pagination parameters
     const { page, limit } = getPagination(query);
@@ -138,8 +138,8 @@ class GithubRepoService {
 
     const { owner, repo } = parseResult.data;
 
-    // 2. Retrieve user's decrypted GitHub token
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    // 2. Retrieve user's valid GitHub access token
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     // 3. Request repository from GitHub API
     const rawRepo = await githubGet({

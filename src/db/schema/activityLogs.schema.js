@@ -67,25 +67,26 @@ export const activityLogs = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    userIdIdx: index(
+  (table) => [
+
+    index(
       "activity_logs_user_id_idx"
     ).on(table.userId),
 
-    ticketIdIdx: index(
+    index(
       "activity_logs_ticket_id_idx"
     ).on(table.ticketId),
 
-    squadIdIdx: index(
+    index(
       "activity_logs_squad_id_idx"
     ).on(table.squadId),
 
-    sprintIdIdx: index(
+    index(
       "activity_logs_sprint_id_idx"
     ).on(table.sprintId),
 
-    createdAtIdx: index(
+    index(
       "activity_logs_created_at_idx"
     ).on(table.createdAt),
-  })
+  ]
 );

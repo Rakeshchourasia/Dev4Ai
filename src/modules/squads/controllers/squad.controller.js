@@ -34,7 +34,8 @@ class SquadController {
       const result =
         await squadService.getAllByCompany(
           companyId,
-          req.query
+          req.query,
+          req.user
         );
 
       return res.status(200).json({

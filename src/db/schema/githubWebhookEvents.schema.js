@@ -36,13 +36,14 @@ export const githubWebhookEvents = pgTable(
 
     processedAt: timestamp("processed_at"),
   },
-  (table) => ({
+  (table) => [
+
     // Idempotency: enforce delivery ID uniqueness across deliveries
-    deliveryIdUnique: uniqueIndex("github_webhook_events_delivery_id_unique")
+    uniqueIndex("github_webhook_events_delivery_id_unique")
       .on(table.deliveryId),
 
     // Fast queries by event type
-    eventIdx: index("github_webhook_events_event_idx")
+    index("github_webhook_events_event_idx")
       .on(table.event),
-  })
+  ]
 );

@@ -75,23 +75,24 @@ export const tickets = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
-    squadIdIdx: index("tickets_squad_id_idx")
+  (table) => [
+
+    index("tickets_squad_id_idx")
       .on(table.squadId),
 
-    sprintIdIdx: index("tickets_sprint_id_idx")
+    index("tickets_sprint_id_idx")
       .on(table.sprintId),
 
-    statusIdx: index("tickets_status_idx")
+    index("tickets_status_idx")
       .on(table.status),
 
-    priorityIdx: index("tickets_priority_idx")
+    index("tickets_priority_idx")
       .on(table.priority),
 
-    createdByIdx: index("tickets_created_by_idx")
+    index("tickets_created_by_idx")
       .on(table.createdBy),
 
-    assignedToIdx: index("tickets_assigned_to_idx")
+    index("tickets_assigned_to_idx")
       .on(table.assignedTo),
-  })
+  ]
 );

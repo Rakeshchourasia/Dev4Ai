@@ -10,6 +10,13 @@ const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const GITHUB_USER_URL = "https://api.github.com/user";
 const GITHUB_EMAILS_URL = "https://api.github.com/user/emails";
 
+export const GITHUB_OAUTH_SCOPES = [
+  "read:user",
+  "user:email",
+  "read:org",
+  "repo",
+];
+
 class GithubAuthService {
   // ==========================================
   // GENERATE AUTHORIZATION URL
@@ -48,7 +55,7 @@ class GithubAuthService {
     const params = new URLSearchParams({
       client_id: config.githubClientId,
       redirect_uri: config.githubCallbackUrl,
-      scope: "read:user user:email",
+      scope: GITHUB_OAUTH_SCOPES.join(" "),
       state: stateToken,
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
@@ -106,8 +113,15 @@ class GithubAuthService {
       throw new AppError("Malformed OAuth state token", 400);
     }
 
-    // 4. Validate double-submit cookie nonce if cookie is present
-    if (cookieNonce && cookieNonce !== decoded.nonce) {
+    // 4. Validate double-submit cookie nonce - MUST be present and match
+    if (!cookieNonce) {
+      throw new AppError(
+        "OAuth state CSRF validation failed. Missing nonce cookie.",
+        403
+      );
+    }
+
+    if (!decoded.nonce || cookieNonce !== decoded.nonce) {
       throw new AppError(
         "OAuth state CSRF validation failed. Nonce mismatch.",
         403
@@ -225,17 +239,12 @@ class GithubAuthService {
       }
     } catch (err) {
       console.warn(
-        "[GitHub OAuth] Failed to fetch emails endpoint, falling back to profile email:",
+        "[GitHub OAuth] Failed to fetch emails endpoint:",
         err.message
       );
     }
 
-    // Fallback: Check if profile email was provided and verified
-    if (!verifiedEmail && githubUser.email) {
-      // If the emails endpoint didn't provide emails, but profile email is present
-      verifiedEmail = githubUser.email;
-    }
-
+    // Strict check: only accept email where verified === true. No unverified fallback.
     if (!verifiedEmail) {
       throw new AppError(
         "No verified email found on your GitHub account. A verified email is required for login.",
@@ -263,7 +272,7 @@ class GithubAuthService {
         githubUsername: githubUser.login,
         accessToken: githubAccessToken,
         refreshToken: tokenData.refresh_token || null,
-        scopes: tokenData.scope || "read:user user:email",
+        scopes: tokenData.scope || GITHUB_OAUTH_SCOPES.join(" "),
         tokenData,
       });
     } catch (err) {

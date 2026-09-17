@@ -52,7 +52,8 @@ class SquadService {
 
   async getAllByCompany(
     companyId,
-    query = {}
+    query = {},
+    user
   ) {
     // Check Company
     const company =
@@ -67,28 +68,27 @@ class SquadService {
       );
     }
 
-    // Pagination
     const {
       page,
       limit,
       offset,
     } = getPagination(query);
 
-    // Get squads
-    const squads =
-      await squadRepository.findAllByCompanyId(
+    const filterUserId = user?.role === "ADMIN" ? null : user?.id;
+
+    const [squads, total] = await Promise.all([
+      squadRepository.findAllByCompanyId(
         companyId,
         {
           limit,
           offset,
+          sortBy: query.sortBy,
+          sortOrder: query.sortOrder,
+          userId: filterUserId,
         }
-      );
-
-    // Get total count
-    const total =
-      await squadRepository.countByCompanyId(
-        companyId
-      );
+      ),
+      squadRepository.countByCompanyId(companyId, filterUserId),
+    ]);
 
     return {
       squads,

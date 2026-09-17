@@ -52,17 +52,18 @@ export const squadGithubRepositories = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
+  (table) => [
+
     // Prevent duplicate linking of the same GitHub repository to the same squad
-    squadRepoUnique: uniqueIndex("squad_github_repositories_squad_repo_unique")
+    uniqueIndex("squad_github_repositories_squad_repo_unique")
       .on(table.squadId, table.githubRepositoryId),
 
     // Lookup index on squadId for listing squad repos
-    squadIdIdx: index("squad_github_repositories_squad_id_idx")
+    index("squad_github_repositories_squad_id_idx")
       .on(table.squadId),
 
     // Lookup index on githubRepositoryId for checking links across squads
-    githubRepoIdIdx: index("squad_github_repositories_github_repo_id_idx")
+    index("squad_github_repositories_github_repo_id_idx")
       .on(table.githubRepositoryId),
-  })
+  ]
 );

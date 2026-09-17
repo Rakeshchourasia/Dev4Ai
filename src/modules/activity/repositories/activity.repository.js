@@ -2,6 +2,8 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "../../../db/index.js";
 import { activityLogs } from "../../../db/schema/activityLogs.schema.js";
+import { users } from "../../../db/schema/users.schema.js";
+import { getTableColumns } from "drizzle-orm";
 
 class ActivityRepository {
   // ==========================================
@@ -24,8 +26,16 @@ class ActivityRepository {
 
   async findByTicketId(ticketId) {
     return await db
-      .select()
+      .select({
+        ...getTableColumns(activityLogs),
+        user: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        }
+      })
       .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
       .where(
         eq(
           activityLogs.ticketId,
@@ -43,8 +53,16 @@ class ActivityRepository {
 
   async findBySquadId(squadId) {
     return await db
-      .select()
+      .select({
+        ...getTableColumns(activityLogs),
+        user: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        }
+      })
       .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
       .where(
         eq(
           activityLogs.squadId,
@@ -62,8 +80,16 @@ class ActivityRepository {
 
   async findBySprintId(sprintId) {
     return await db
-      .select()
+      .select({
+        ...getTableColumns(activityLogs),
+        user: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+        }
+      })
       .from(activityLogs)
+      .leftJoin(users, eq(activityLogs.userId, users.id))
       .where(
         eq(
           activityLogs.sprintId,

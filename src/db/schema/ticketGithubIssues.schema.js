@@ -55,17 +55,18 @@ export const ticketGithubIssues = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (table) => ({
+  (table) => [
+
     // Enforce 1 GitHub issue per DEVAI ticket
-    ticketIdUnique: uniqueIndex("ticket_github_issues_ticket_id_unique")
+    uniqueIndex("ticket_github_issues_ticket_id_unique")
       .on(table.ticketId),
 
     // Prevent linking the same GitHub issue to multiple DEVAI tickets
-    repoIssueUnique: uniqueIndex("ticket_github_issues_repo_issue_unique")
+    uniqueIndex("ticket_github_issues_repo_issue_unique")
       .on(table.githubRepositoryId, table.githubIssueId),
 
     // Supporting index on issue number
-    issueNumberIdx: index("ticket_github_issues_issue_number_idx")
+    index("ticket_github_issues_issue_number_idx")
       .on(table.githubIssueNumber),
-  })
+  ]
 );

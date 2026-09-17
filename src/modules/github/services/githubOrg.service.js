@@ -12,7 +12,7 @@
  */
 
 import AppError from "../../../shared/errors/AppError.js";
-import githubConnectionService from "./githubConnection.service.js";
+import githubTokenService from "./githubToken.service.js";
 import { githubGetAll, githubGet } from "../utils/githubClient.js";
 
 class GithubOrgService {
@@ -28,9 +28,9 @@ class GithubOrgService {
    * @returns {Promise<Array<{ id: number, login: string, avatarUrl: string, description: string|null }>>}
    */
   async listOrganizations(userId) {
-    // 1. Retrieve this user's token from the encrypted store
+    // 1. Retrieve this user's valid token
     //    throws 404 AppError if the user has no GitHub connection
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     // 2. Fetch all organizations the authenticated user belongs to
     //    GitHub endpoint: GET /user/orgs
@@ -76,8 +76,8 @@ class GithubOrgService {
       throw new AppError("Invalid organization name", 400);
     }
 
-    // 1. Retrieve this user's token from the encrypted store
-    const token = await githubConnectionService.getDecryptedAccessToken(userId);
+    // 1. Retrieve this user's valid token
+    const token = await githubTokenService.getValidAccessToken(userId);
 
     // 2. Fetch repositories for the org
     //    GitHub endpoint: GET /orgs/{org}/repos

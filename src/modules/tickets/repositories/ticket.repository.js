@@ -4,10 +4,16 @@ import {
   desc,
   asc,
   count,
+  getTableColumns,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "../../../db/index.js";
 import { tickets } from "../../../db/schema/tickets.schema.js";
+import { users } from "../../../db/schema/users.schema.js";
+
+const createdByAlias = alias(users, "created_by_user");
+const assignedToAlias = alias(users, "assigned_to_user");
 
 class TicketRepository {
   // ==========================================
@@ -68,8 +74,22 @@ class TicketRepository {
         : desc(sortColumn);
 
     let query = db
-      .select()
+      .select({
+        ...getTableColumns(tickets),
+        createdByUser: {
+          id: createdByAlias.id,
+          name: createdByAlias.name,
+          email: createdByAlias.email,
+        },
+        assignedToUser: {
+          id: assignedToAlias.id,
+          name: assignedToAlias.name,
+          email: assignedToAlias.email,
+        }
+      })
       .from(tickets)
+      .leftJoin(createdByAlias, eq(tickets.createdBy, createdByAlias.id))
+      .leftJoin(assignedToAlias, eq(tickets.assignedTo, assignedToAlias.id))
       .where(
         and(...conditions)
       )
@@ -195,8 +215,22 @@ class TicketRepository {
         : desc(sortColumn);
 
     let query = db
-      .select()
+      .select({
+        ...getTableColumns(tickets),
+        createdByUser: {
+          id: createdByAlias.id,
+          name: createdByAlias.name,
+          email: createdByAlias.email,
+        },
+        assignedToUser: {
+          id: assignedToAlias.id,
+          name: assignedToAlias.name,
+          email: assignedToAlias.email,
+        }
+      })
       .from(tickets)
+      .leftJoin(createdByAlias, eq(tickets.createdBy, createdByAlias.id))
+      .leftJoin(assignedToAlias, eq(tickets.assignedTo, assignedToAlias.id))
       .where(
         and(...conditions)
       )
@@ -274,8 +308,22 @@ class TicketRepository {
   ) {
     const [ticket] =
       await database
-        .select()
+        .select({
+          ...getTableColumns(tickets),
+          createdByUser: {
+            id: createdByAlias.id,
+            name: createdByAlias.name,
+            email: createdByAlias.email,
+          },
+          assignedToUser: {
+            id: assignedToAlias.id,
+            name: assignedToAlias.name,
+            email: assignedToAlias.email,
+          }
+        })
         .from(tickets)
+        .leftJoin(createdByAlias, eq(tickets.createdBy, createdByAlias.id))
+        .leftJoin(assignedToAlias, eq(tickets.assignedTo, assignedToAlias.id))
         .where(
           eq(
             tickets.id,
